@@ -86,12 +86,12 @@ description: "Task list for MEXC Sniper Bot AI implementation"
 - [X] T031 [US1] Implement background listing monitor in packages/api/src/services/listing-monitor.ts
 - [X] T032 [US1] Create trade attempt logging service in packages/api/src/services/trade-logger.ts
 - [X] T033 [US1] Implement performance monitoring service in packages/api/src/services/performance-monitor.ts
-- [ ] T034 [US1] Create basic dashboard page in apps/web/src/app/dashboard/page.tsx
-- [ ] T035 [US1] Implement real-time trade status display in apps/web/src/components/trade-status.tsx
-- [ ] T036 [US1] Create listing events display component in apps/web/src/components/listing-events.tsx
-- [ ] T037 [US1] Implement bot status indicator in apps/web/src/components/bot-status.tsx
-- [ ] T038 [US1] Create TanStack Query hooks for trading data in apps/web/src/hooks/use-trading.ts
-- [ ] T039 [US1] Implement real-time data subscriptions in apps/web/src/hooks/use-realtime.ts
+- [X] T034 [US1] Create basic dashboard page in apps/web/src/app/dashboard/page.tsx
+- [X] T035 [US1] Implement real-time trade status display in apps/web/src/components/trade-status.tsx
+- [X] T036 [US1] Create listing events display component in apps/web/src/components/listing-events.tsx
+- [X] T037 [US1] Implement bot status indicator in apps/web/src/components/bot-status.tsx
+- [X] T038 [US1] Create TanStack Query hooks for trading data in apps/web/src/hooks/use-trading.ts
+- [X] T039 [US1] Implement real-time data subscriptions in apps/web/src/hooks/use-realtime.ts
 
 ### Tests for User Story 1 ⚠️
 

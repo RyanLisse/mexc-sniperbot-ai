@@ -1,24 +1,8 @@
 import { publicProcedure, router } from "../index";
-import { todoRouter } from "./todo";
-
-// Placeholder routers - will be implemented in user stories
-const configurationRouter = router({
-  getConfiguration: publicProcedure.query(() => ({
-    message: "Configuration router - to be implemented",
-  })),
-});
-
-const tradingRouter = router({
-  getTradeHistory: publicProcedure.query(() => ({
-    message: "Trading router - to be implemented",
-  })),
-});
-
-const monitoringRouter = router({
-  getBotStatus: publicProcedure.query(() => ({
-    message: "Monitoring router - to be implemented",
-  })),
-});
+import { todoRouter } from "./todos";
+import { configurationRouter } from "./configuration";
+import { tradingRouter } from "./trading";
+import { monitoringRouter } from "./monitoring";
 
 const authRouter = router({
   getCurrentUser: publicProcedure.query(() => ({
@@ -26,8 +10,19 @@ const authRouter = router({
   })),
 });
 
+// Main app router combining all routers
 export const appRouter = router({
-  healthCheck: publicProcedure.query(() => "OK"),
+  healthCheck: publicProcedure.query(() => ({
+    message: "MEXC Sniper Bot API is healthy",
+    timestamp: new Date().toISOString(),
+    version: "1.0.0",
+    endpoints: {
+      todos: "Todo management",
+      configuration: "Trading configuration management",
+      trading: "Trading operations and bot control",
+      monitoring: "System monitoring and health checks",
+    },
+  })),
   configuration: configurationRouter,
   trading: tradingRouter,
   monitoring: monitoringRouter,

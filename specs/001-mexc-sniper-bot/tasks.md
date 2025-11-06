@@ -74,15 +74,15 @@ description: "Task list for MEXC Sniper Bot AI implementation"
 - [ ] T019 [P] [US1] Create TradeAttempt schema in packages/db/src/schema/trade-attempts.ts
 - [ ] T020 [P] [US1] Create BotStatus schema in packages/db/src/schema/bot-status.ts
 - [ ] T021 [P] [US1] Create database indexes for performance optimization in packages/db/src/schema/indexes.ts
-- [ ] T022 [P] [US1] Implement MEXC API client service in packages/api/src/services/mexc-client.ts
-- [ ] T023 [P] [US1] Implement HMAC SHA256 request signing in packages/api/src/services/mexc-signing.ts
-- [ ] T024 [US1] Create listing detection service in packages/api/src/services/listing-detector.ts
-- [ ] T025 [US1] Implement trade execution service in packages/api/src/services/trade-executor.ts
-- [ ] T026 [US1] Create exponential backoff retry logic using Effect-TS in packages/api/src/services/retry-service.ts
-- [ ] T027 [US1] Implement trading orchestrator service in packages/api/src/services/trading-orchestrator.ts
-- [ ] T028 [US1] Create configuration router procedures in packages/api/src/routers/configuration.ts
-- [ ] T029 [US1] Create trading router procedures in packages/api/src/routers/trading.ts
-- [ ] T030 [US1] Create monitoring router procedures in packages/api/src/routers/monitoring.ts
+- [X] T022 [P] [US1] Implement MEXC API client service in packages/api/src/services/mexc-client.ts
+- [X] T023 [P] [US1] Implement HMAC SHA256 request signing in packages/api/src/services/mexc-signing.ts
+- [X] T024 [US1] Create listing detection service in packages/api/src/services/listing-detector.ts
+- [X] T025 [US1] Implement trade execution service in packages/api/src/services/trade-executor.ts
+- [X] T026 [US1] Create exponential backoff retry logic using Effect-TS in packages/api/src/services/retry-service.ts
+- [X] T027 [US1] Implement trading orchestrator service in packages/api/src/services/trading-orchestrator.ts
+- [X] T028 [US1] Create configuration router procedures in packages/api/src/routers/configuration.ts
+- [X] T029 [US1] Create trading router procedures in packages/api/src/routers/trading.ts
+- [X] T030 [US1] Create monitoring router procedures in packages/api/src/routers/monitoring.ts
 - [ ] T031 [US1] Implement background listing monitor in packages/api/src/services/listing-monitor.ts
 - [ ] T032 [US1] Create trade attempt logging service in packages/api/src/services/trade-logger.ts
 - [ ] T033 [US1] Implement performance monitoring service in packages/api/src/services/performance-monitor.ts

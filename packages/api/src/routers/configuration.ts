@@ -1,8 +1,8 @@
-import { router, protectedProcedure, publicProcedure } from "../index";
+import { router, protectedProcedure } from "./index";
 import { Effect } from "effect";
 import { z } from "zod";
 import { db } from "@mexc-sniperbot-ai/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { tradingConfiguration } from "@mexc-sniperbot-ai/db";
 import { ConfigurationError, TradingLogger } from "../lib/effect";
 import type { TradingConfiguration as TradingConfigType } from "@mexc-sniperbot-ai/db";

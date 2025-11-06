@@ -1,5 +1,5 @@
 import { Effect, Layer, Context } from "effect";
-import { mexcClient, type MEXCSymbol, type MEXCTicker } from "./mexc-client";
+import { mexcClient } from "./mexc-client";
 import { MEXCApiError, TradingLogger } from "../lib/effect";
 import { db } from "@mexc-sniperbot-ai/db";
 import { eq, desc, and, gt } from "drizzle-orm";
@@ -107,7 +107,7 @@ export class ListingDetector implements ListingDetectorService {
         }
 
         return hasRecentActivity;
-      } catch (error) {
+      } catch (_error) {
         // If we can't get ticker data, it's likely not an active symbol
         yield* TradingLogger.logDebug(`Symbol ${symbol} has no recent activity (ticker fetch failed)`);
         return false;

@@ -2,7 +2,7 @@ import { router, protectedProcedure, publicProcedure } from "../index";
 import { Effect } from "effect";
 import { z } from "zod";
 import { db } from "@mexc-sniperbot-ai/db";
-import { eq, and, desc, gt, lt, gte, lte } from "drizzle-orm";
+import { eq, and, desc, gt } from "drizzle-orm";
 import { botStatus, tradeAttempt, listingEvent } from "@mexc-sniperbot-ai/db";
 import { MonitoringError, TradingLogger } from "../lib/effect";
 import { tradingOrchestrator } from "../services/trading-orchestrator";

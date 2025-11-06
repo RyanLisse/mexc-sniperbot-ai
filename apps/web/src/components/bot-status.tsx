@@ -9,8 +9,6 @@ import {
   Power, 
   PowerOff, 
   Activity, 
-  Clock, 
-  Zap, 
   AlertCircle,
   CheckCircle,
   XCircle,
@@ -47,8 +45,8 @@ interface BotStatusProps {
 }
 
 export function BotStatus({ isRunning: externalIsRunning, onToggle }: BotStatusProps) {
-  const [botStatus, setBotStatus] = useState(mockBotStatus);
-  const [systemMetrics, setSystemMetrics] = useState(mockSystemMetrics);
+  const [botStatus, _setBotStatus] = useState(mockBotStatus);
+  const [systemMetrics, _setSystemMetrics] = useState(mockSystemMetrics);
   const [isLoading, setIsLoading] = useState(false);
   const [isInternalRunning, setIsInternalRunning] = useState(mockBotStatus.isRunning);
 
@@ -127,7 +125,7 @@ export function BotStatus({ isRunning: externalIsRunning, onToggle }: BotStatusP
     }
   };
 
-  const getProgressColor = (value: number, thresholds: { warning: number; danger: number }) => {
+  const _getProgressColor = (value: number, thresholds: { warning: number; danger: number }) => {
     if (value >= thresholds.danger) return "bg-red-500";
     if (value >= thresholds.warning) return "bg-yellow-500";
     return "bg-green-500";

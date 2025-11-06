@@ -170,5 +170,3 @@ export const signMEXCRequest = (
   return signingService.signRequest(params, timestamp);
 };
 
-// Export the signing service class for dependency injection
-export { MEXCSigningService };

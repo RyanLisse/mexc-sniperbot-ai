@@ -12,7 +12,7 @@ export type ListingMonitorService = {
 };
 
 // Service tag
-export const ListingMonitorService = Context.Tag<ListingMonitorService>("ListingMonitorService");
+export const ListingMonitorServiceTag = Context.Tag<ListingMonitorService>("ListingMonitorService");
 
 // Monitoring statistics type
 export type MonitoringStats = {
@@ -25,26 +25,27 @@ export type MonitoringStats = {
   lastError?: string;
 };
 
-// Implementation class
-export class ListingMonitor implements ListingMonitorService {
-  private isRunning = false;
-  private monitoringInterval: NodeJS.Timeout | null = null;
-  private startTime?: Date;
-  private totalCycles = 0;
-  private lastCycleTime?: Date;
-  private cycleTimes: number[] = [];
-  private newListingsDetected = 0;
-  private errorsEncountered = 0;
+// Global state for monitoring (simplified for this implementation)
+let isRunning = false;
+let startTime?: Date;
+let totalCycles = 0;
+let lastCycleTime?: Date;
+let cycleTimes: number[] = [];
+let newListingsDetected = 0;
+let errorsEncountered = 0;
+let monitoringInterval: NodeJS.Timeout | null = null;
 
-  private readonly MONITORING_INTERVAL = 5000; // 5 seconds
-  private readonly MAX_CYCLE_TIME_HISTORY = 100;
+const MONITORING_INTERVAL = 5000; // 5 seconds
+const MAX_CYCLE_TIME_HISTORY = 100;
 
+// Implementation
+export const listingMonitor: ListingMonitorService = {
   // Start the background monitoring process
-  startMonitoring = (): Effect.Effect<void, TradingError> => {
+  startMonitoring: (): Effect.Effect<void, TradingError> => {
     return Effect.gen(function* () {
       yield* TradingLogger.logInfo("Starting listing monitor");
 
-      if (this.isRunning) {
+      if (isRunning) {
         throw new TradingError({
           message: "Listing monitor is already running",
           code: "MONITOR_ALREADY_RUNNING",
@@ -57,246 +58,196 @@ export class ListingMonitor implements ListingMonitorService {
         yield* listingDetector.initialize();
 
         // Start monitoring
-        this.isRunning = true;
-        this.startTime = new Date();
-        this.totalCycles = 0;
-        this.newListingsDetected = 0;
-        this.errorsEncountered = 0;
-        this.cycleTimes = [];
+        isRunning = true;
+        startTime = new Date();
+        totalCycles = 0;
+        errorsEncountered = 0;
+
+        yield* TradingLogger.logInfo("Listing monitor started successfully");
 
         // Start the monitoring loop
-        this.startMonitoringLoop();
+        yield* startMonitoringLoop();
 
-        yield* TradingLogger.logInfo("Listing monitor started successfully", {
-          interval: this.MONITORING_INTERVAL_MS,
-        });
       } catch (error) {
-        // Stop monitoring if initialization failed
-        this.isRunning = false;
-        throw error instanceof TradingError 
-          ? error 
-          : new TradingError({
-              message: `Failed to start listing monitor: ${error instanceof Error ? error.message : "Unknown error"}`,
-              code: "MONITOR_START_FAILED",
-              timestamp: new Date(),
-            });
-      }
-    });
-  };
-
-  // Stop the background monitoring process
-  stopMonitoring = (): Effect.Effect<void, TradingError> => {
-    return Effect.gen(function* () {
-      yield* TradingLogger.logInfo("Stopping listing monitor");
-
-      if (!this.isRunning) {
+        yield* TradingLogger.logError("Failed to start listing monitor", error);
         throw new TradingError({
-          message: "Listing monitor is not running",
-          code: "MONITOR_NOT_RUNNING",
+          message: "Failed to start listing monitor",
+          code: "MONITOR_START_FAILED",
           timestamp: new Date(),
         });
       }
+    });
+  },
+
+  // Stop the background monitoring process
+  stopMonitoring: (): Effect.Effect<void, TradingError> => {
+    return Effect.gen(function* () {
+      yield* TradingLogger.logInfo("Stopping listing monitor");
+
+      if (!isRunning) {
+        yield* TradingLogger.logWarning("Listing monitor is not running");
+        return;
+      }
 
       try {
-        // Stop the monitoring loop
-        this.isRunning = false;
-        if (this.monitoringInterval) {
-          clearInterval(this.monitoringInterval);
-          this.monitoringInterval = null;
+        // Clear the monitoring interval
+        if (monitoringInterval) {
+          clearInterval(monitoringInterval);
+          monitoringInterval = null;
         }
 
-        const uptime = this.startTime ? Date.now() - this.startTime.getTime() : 0;
+        // Stop the listing detector
+        yield* listingDetector.shutdown();
 
-        yield* TradingLogger.logInfo("Listing monitor stopped successfully", {
-          totalCycles: this.totalCycles,
-          uptime,
-          newListingsDetected: this.newListingsDetected,
-          errorsEncountered: this.errorsEncountered,
-        });
+        // Update state
+        isRunning = false;
+
+        yield* TradingLogger.logInfo("Listing monitor stopped successfully");
+
       } catch (error) {
+        yield* TradingLogger.logError("Failed to stop listing monitor", error);
         throw new TradingError({
-          message: `Failed to stop listing monitor: ${error instanceof Error ? error.message : "Unknown error"}`,
+          message: "Failed to stop listing monitor",
           code: "MONITOR_STOP_FAILED",
           timestamp: new Date(),
         });
       }
     });
-  };
+  },
 
   // Check if monitoring is currently active
-  isMonitoring = (): Effect.Effect<boolean, TradingError> => {
-    return Effect.sync(() => this.isRunning);
-  };
+  isMonitoring: (): Effect.Effect<boolean, TradingError> => {
+    return Effect.succeed(isRunning);
+  },
 
-  // Get monitoring statistics
-  getMonitoringStats = (): Effect.Effect<MonitoringStats, TradingError> => {
-    return Effect.gen(function* () {
-      const uptime = this.startTime ? Date.now() - this.startTime.getTime() : 0;
-      const averageCycleTime = this.cycleTimes.length > 0
-        ? this.cycleTimes.reduce((sum, time) => sum + time, 0) / this.cycleTimes.length
-        : 0;
-
-      return {
-        isRunning: this.isRunning,
-        startTime: this.startTime,
-        totalCycles: this.totalCycles,
-        lastCycleTime: this.lastCycleTime,
-        averageCycleTime,
-        newListingsDetected: this.newListingsDetected,
-        errorsEncountered: this.errorsEncountered,
-        uptime,
-      };
+  // Get current monitoring statistics
+  getMonitoringStats: (): Effect.Effect<MonitoringStats, TradingError> => {
+    return Effect.succeed({
+      isRunning,
+      startTime,
+      totalCycles,
+      lastCycleTime,
+      averageCycleTime: cycleTimes.length > 0 
+        ? cycleTimes.reduce((sum, time) => sum + time, 0) / cycleTimes.length 
+        : 0,
+      errorsSinceStart: errorsEncountered,
     });
-  };
+  },
+};
 
-  // Private helper methods
+// Internal function to start the monitoring loop
+const startMonitoringLoop = (): Effect.Effect<void, TradingError> => {
+  return Effect.gen(function* () {
+    yield* TradingLogger.logInfo("Starting monitoring loop");
 
-  // Start the monitoring loop
-  private startMonitoringLoop = (): void => {
-    this.monitoringInterval = setInterval(async () => {
-      if (this.isRunning) {
-        Effect.runPromise(
-          this.performMonitoringCycle().pipe(
-            Effect.catchAll((error) => {
-              this.errorsEncountered += 1;
-              TradingLogger.logError("Monitoring cycle failed", error as Error);
-              return Effect.void;
-            })
-          )
-        );
+    // Set up the interval for periodic monitoring
+    monitoringInterval = setInterval(() => {
+      // This is simplified - in a real implementation, 
+      // this would be wrapped in Effect properly
+      performMonitoringCycle().catch((error) => {
+        errorsEncountered++;
+        TradingLogger.logError("Monitoring cycle failed", error);
+      });
+    }, MONITORING_INTERVAL);
+
+    yield* TradingLogger.logInfo("Monitoring loop started");
+  });
+};
+
+// Internal function to perform a single monitoring cycle
+const performMonitoringCycle = async (): Promise<void> => {
+  const cycleStartTime = Date.now();
+
+  try {
+    // Run the listing detector
+    await Effect.runPromise(listingDetector.checkForNewListings());
+
+    // Update statistics
+    totalCycles++;
+    lastCycleTime = new Date();
+    const cycleTime = Date.now() - cycleStartTime;
+    
+    // Keep cycle time history limited
+    cycleTimes.push(cycleTime);
+    if (cycleTimes.length > MAX_CYCLE_TIME_HISTORY) {
+      cycleTimes.shift();
+    }
+
+    await Effect.runPromise(TradingLogger.logDebug(
+      `Monitoring cycle completed in ${cycleTime}ms`
+    ));
+
+  } catch (error) {
+    errorsEncountered++;
+    await Effect.runPromise(TradingLogger.logError("Monitoring cycle failed", error));
+    throw error;
+  }
+};
+
+// Health check function
+export const healthCheck = (): Effect.Effect<{
+  status: "healthy" | "degraded" | "unhealthy";
+  issues: string[];
+  recommendations: string[];
+}, TradingError> => {
+  return Effect.gen(function* () {
+    const stats = yield* listingMonitor.getMonitoringStats();
+    const issues: string[] = [];
+    const recommendations: string[] = [];
+
+    // Check if monitoring is running
+    if (!stats.isRunning) {
+      issues.push("Listing monitor is not running");
+      recommendations.push("Start the listing monitor");
+    }
+
+    // Check error rate
+    if (stats.errorsSinceStart > 0) {
+      const errorRate = stats.errorsSinceStart / Math.max(stats.totalCycles, 1);
+      if (errorRate > 0.1) {
+        issues.push(`High error rate: ${(errorRate * 100).toFixed(1)}%`);
+        recommendations.push("Check logs for error patterns");
       }
-    }, this.MONITORING_INTERVAL_MS);
-  };
+    }
 
-  // Perform a single monitoring cycle
-  private performMonitoringCycle = (): Effect.Effect<void, TradingError> => {
-    return Effect.gen(function* () {
-      const cycleStartTime = Date.now();
+    // Check cycle time
+    if (stats.averageCycleTime > 10000) { // 10 seconds
+      issues.push(`Slow average cycle time: ${stats.averageCycleTime.toFixed(0)}ms`);
+      recommendations.push("Optimize monitoring cycle performance");
+    }
 
-      try {
-        yield* TradingLogger.logDebug("Starting monitoring cycle", {
-          cycleNumber: this.totalCycles + 1,
-        });
+    // Determine overall status
+    let status: "healthy" | "degraded" | "unhealthy" = "healthy";
+    if (issues.length > 0) {
+      status = issues.length > 2 ? "unhealthy" : "degraded";
+    }
 
-        // Process new listings through the orchestrator
-        const successfulTrades = yield* tradingOrchestrator.processNewListings();
+    return {
+      status,
+      issues,
+      recommendations,
+    };
+  });
+};
 
-        // Update statistics
-        this.totalCycles += 1;
-        this.lastCycleTime = new Date();
-        this.newListingsDetected += successfulTrades;
-
-        const cycleTime = Date.now() - cycleStartTime;
-        this.cycleTimes.push(cycleTime);
-
-        // Keep only recent cycle times
-        if (this.cycleTimes.length > this.MAX_CYCLE_TIME_HISTORY) {
-          this.cycleTimes = this.cycleTimes.slice(-this.MAX_CYCLE_TIME_HISTORY);
-        }
-
-        yield* TradingLogger.logDebug("Monitoring cycle completed", {
-          cycleNumber: this.totalCycles,
-          cycleTime,
-          successfulTrades,
-          totalListingsDetected: this.newListingsDetected,
-        });
-
-        // Check if cycle is taking too long
-        if (cycleTime > this.MONITORING_INTERVAL_MS * 0.8) {
-          yield* TradingLogger.logWarn("Monitoring cycle taking longer than expected", {
-            cycleTime,
-            interval: this.MONITORING_INTERVAL_MS,
-          });
-        }
-      } catch (error) {
-        this.errorsEncountered += 1;
-        
-        const cycleTime = Date.now() - cycleStartTime;
-        this.cycleTimes.push(cycleTime);
-
-        yield* TradingLogger.logError("Monitoring cycle failed", error as Error, {
-          cycleNumber: this.totalCycles + 1,
-          cycleTime,
-        });
-
-        if (error instanceof TradingError) {
-          throw error;
-        }
-
-        throw new TradingError({
-          message: `Monitoring cycle failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-          code: "MONITORING_CYCLE_FAILED",
-          timestamp: new Date(),
-        });
-      }
-    });
-  };
-
-  // Get detailed monitoring health
-  getMonitoringHealth = (): Effect.Effect<{
-    status: "healthy" | "degraded" | "unhealthy";
-    issues: string[];
-    recommendations: string[];
-  }, TradingError> => {
-    return Effect.gen(function* () {
-      const stats = yield* this.getMonitoringStats();
-      const issues: string[] = [];
-      const recommendations: string[] = [];
-
-      // Check error rate
-      if (stats.totalCycles > 0) {
-        const errorRate = (stats.errorsEncountered / stats.totalCycles) * 100;
-        if (errorRate > 10) {
-          issues.push(`High error rate: ${errorRate.toFixed(1)}%`);
-          recommendations.push("Check API connectivity and system resources");
-        }
-      }
-
-      // Check average cycle time
-      if (stats.averageCycleTime > this.MONITORING_INTERVAL_MS * 0.7) {
-        issues.push(`Slow cycle times: ${stats.averageCycleTime.toFixed(0)}ms average`);
-        recommendations.push("Consider optimizing detection logic or increasing monitoring interval");
-      }
-
-      // Check if monitor has been running too long without restart
-      if (stats.uptime > 24 * 60 * 60 * 1000) { // 24 hours
-        issues.push("Monitor running for over 24 hours");
-        recommendations.push("Consider periodic restarts for stability");
-      }
-
-      // Determine overall status
-      let status: "healthy" | "degraded" | "unhealthy" = "healthy";
-      if (issues.length > 0) {
-        status = issues.length > 2 ? "unhealthy" : "degraded";
-      }
-
-      return {
-        status,
-        issues,
-        recommendations,
-      };
-    });
-  };
-
-  // Reset monitoring statistics
-  resetStats = (): Effect.Effect<void, TradingError> => {
-    return Effect.sync(() => {
-      this.totalCycles = 0;
-      this.newListingsDetected = 0;
-      this.errorsEncountered = 0;
-      this.cycleTimes = [];
-      this.lastCycleTime = undefined;
-      
-      TradingLogger.logInfo("Monitoring statistics reset");
-    });
-  };
-}
-
-// Create layer for dependency injection
-export const ListingMonitorLive = Layer.succeed(
-  ListingMonitorService,
-  new ListingMonitor()
+// Layer for dependency injection
+export const ListingMonitorLayer = Layer.succeed(
+  ListingMonitorServiceTag,
+  listingMonitor
 );
 
-// Export singleton instance
-export const listingMonitor = new ListingMonitor();
+/**
+ * Usage Example:
+ * 
+ * ```typescript
+ * // Start monitoring
+ * await Effect.runPromise(listingMonitor.startMonitoring());
+ * 
+ * // Check status
+ * const stats = await Effect.runPromise(listingMonitor.getMonitoringStats());
+ * console.log("Monitoring stats:", stats);
+ * 
+ * // Stop monitoring
+ * await Effect.runPromise(listingMonitor.stopMonitoring());
+ * ```
+ */

@@ -9,13 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { 
-  Activity, 
   TrendingUp, 
-  TrendingDown, 
   Clock, 
-  DollarSign,
-  Zap,
-  AlertCircle,
+  Zap, 
   Play,
   BarChart3,
   ArrowUpRight,
@@ -84,8 +80,8 @@ const mockStats = {
 };
 
 export function TradeStatus() {
-  const [trades, setTrades] = useState(mockTradeHistory);
-  const [stats, setStats] = useState(mockStats);
+  const [trades, _setTrades] = useState(mockTradeHistory);
+  const [stats, _setStats] = useState(mockStats);
   const [isLoading, setIsLoading] = useState(false);
   const [symbol, setSymbol] = useState("");
   const [strategy, setStrategy] = useState<"MARKET" | "LIMIT">("MARKET");
@@ -183,7 +179,7 @@ export function TradeStatus() {
           <CardContent>
             <div className="text-2xl font-bold">{stats.successRate}%</div>
             <p className="text-xs text-muted-foreground">
-              Target: >90%
+              Target: &gt;90%
             </p>
           </CardContent>
         </Card>

@@ -49,6 +49,32 @@ coverage
 tmp
 temp
 
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Drizzle
+drizzle/
+
+# Effect-TS
+.effect/
+
+# Security
+*.key
+*.pem
+*.crt
+*.p12
+secrets/
+credentials/
+
+# Bun
+.bun-cache/
+
+# Performance profiling
+*.cpuprofile
+*.heapprofile
+
 # START Ruler Generated Files
 /.codex/config.json
 /.codex/config.json.bak
@@ -73,3 +99,11 @@ temp
 /opencode.json
 /opencode.json.bak
 # END Ruler Generated Files
+.clinerules/byterover-rules.md
+.kilocode/rules/byterover-rules.md
+.roo/rules/byterover-rules.md
+.windsurf/rules/byterover-rules.md
+.cursor/rules/byterover-rules.mdc
+.kiro/steering/byterover-rules.md
+.qoder/rules/byterover-rules.md
+.augment/rules/byterover-rules.md

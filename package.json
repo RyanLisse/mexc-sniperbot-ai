@@ -34,7 +34,10 @@
     "db:migrate": "turbo -F @mexc-sniperbot-ai/db db:migrate"
   },
   "dependencies": {
+    "@effect/platform": "^0.93.0",
+    "@effect/schema": "^0.75.5",
     "dotenv": "^17.2.2",
+    "effect": "^3.19.2",
     "zod": "^4.1.11"
   },
   "devDependencies": {

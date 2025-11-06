@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,9 @@ import {
   Play,
   BarChart3,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Activity,
+  DollarSign
 } from "lucide-react";
 
 // Mock data - will be replaced with real API calls
@@ -91,9 +93,10 @@ export function TradeStatus() {
     fetchTradeData();
     const interval = setInterval(fetchTradeData, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchTradeData]);
 
-  const fetchTradeData = async () => {
+  const fetchTradeData = useCallback(async () => {
+    await Promise.resolve(); // Add await expression
     try {
       // Replace with actual API calls
       // const [tradesResponse, statsResponse] = await Promise.all([
@@ -104,13 +107,16 @@ export function TradeStatus() {
       // const statsData = await statsResponse.json();
       // setTrades(tradesData.trades);
       // setStats(statsData);
+      console.log('Trade data fetched (mock data currently)');
     } catch (error) {
       console.error('Failed to fetch trade data:', error);
     }
-  };
+  }, []);
 
   const handleManualTrade = async () => {
-    if (!symbol) return;
+    if (!symbol) {
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -134,9 +140,13 @@ export function TradeStatus() {
 
   const formatTimeAgo = (date: Date) => {
     const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-    if (seconds < 60) return `${seconds}s ago`;
+    if (seconds < 60) {
+      return `${seconds}s ago`;
+    }
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
+    if (minutes < 60) {
+      return `${minutes}m ago`;
+    }
     const hours = Math.floor(minutes / 60);
     return `${hours}h ago`;
   };

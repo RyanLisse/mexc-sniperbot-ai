@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,10 +39,10 @@ const mockSystemMetrics = {
   requestsPerMinute: 45,
 };
 
-interface BotStatusProps {
+type BotStatusProps = {
   isRunning?: boolean;
   onToggle?: () => void;
-}
+};
 
 export function BotStatus({ isRunning: externalIsRunning, onToggle }: BotStatusProps) {
   const [botStatus, _setBotStatus] = useState(mockBotStatus);
@@ -53,13 +53,8 @@ export function BotStatus({ isRunning: externalIsRunning, onToggle }: BotStatusP
   // Use external prop if provided, otherwise use internal state
   const isRunning = externalIsRunning !== undefined ? externalIsRunning : isInternalRunning;
 
-  useEffect(() => {
-    fetchBotStatus();
-    const interval = setInterval(fetchBotStatus, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchBotStatus = async () => {
+  const fetchBotStatus = useCallback(async () => {
+    await Promise.resolve(); // Add await expression
     try {
       // Replace with actual API calls
       // const [statusResponse, metricsResponse] = await Promise.all([
@@ -70,10 +65,17 @@ export function BotStatus({ isRunning: externalIsRunning, onToggle }: BotStatusP
       // const metricsData = await metricsResponse.json();
       // setBotStatus(statusData);
       // setSystemMetrics(metricsData);
+      console.log('Bot status fetched (mock data currently)');
     } catch (error) {
       console.error('Failed to fetch bot status:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchBotStatus();
+    const interval = setInterval(fetchBotStatus, 5000);
+    return () => clearInterval(interval);
+  }, [fetchBotStatus]);
 
   const handleToggleBot = async () => {
     setIsLoading(true);
@@ -126,9 +128,38 @@ export function BotStatus({ isRunning: externalIsRunning, onToggle }: BotStatusP
   };
 
   const _getProgressColor = (value: number, thresholds: { warning: number; danger: number }) => {
-    if (value >= thresholds.danger) return "bg-red-500";
-    if (value >= thresholds.warning) return "bg-yellow-500";
+    if (value >= thresholds.danger) {
+      return "bg-red-500";
+    }
+    if (value >= thresholds.warning) {
+      return "bg-yellow-500";
+    }
     return "bg-green-500";
+  };
+
+  const _getButtonContent = () => {
+    if (isLoading) {
+      return (
+        <>
+          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+          Processing...
+        </>
+      );
+    }
+    if (isRunning) {
+      return (
+        <>
+          <PowerOff className="h-4 w-4 mr-2" />
+          Stop Bot
+        </>
+      );
+    }
+    return (
+      <>
+        <Power className="h-4 w-4 mr-2" />
+        Start Bot
+      </>
+    );
   };
 
   return (
@@ -160,22 +191,7 @@ export function BotStatus({ isRunning: externalIsRunning, onToggle }: BotStatusP
             variant={isRunning ? "destructive" : "default"}
             className="flex-1"
           >
-            {isLoading ? (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                Processing...
-              </>
-            ) : isRunning ? (
-              <>
-                <PowerOff className="h-4 w-4 mr-2" />
-                Stop Bot
-              </>
-            ) : (
-              <>
-                <Power className="h-4 w-4 mr-2" />
-                Start Bot
-              </>
-            )}
+            {_getButtonContent()}
           </Button>
           <Button variant="outline" size="icon">
             <Settings className="h-4 w-4" />

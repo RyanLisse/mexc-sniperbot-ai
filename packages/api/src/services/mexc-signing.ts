@@ -29,7 +29,7 @@ export class MEXCSigningService {
 
   // Validate that the secret key is properly formatted
   validateSecretKey = (): Effect.Effect<void, MEXCApiError> => {
-    return Effect.gen(function* () {
+    return Effect.gen(function* (this: MEXCSigningService) {
       if (!this.secretKey || this.secretKey.length === 0) {
         throw new MEXCApiError({
           message: "Secret key is empty or undefined",
@@ -66,7 +66,7 @@ export class MEXCSigningService {
     params: Record<string, string | number>,
     timestamp?: number
   ): Effect.Effect<string, MEXCApiError> => {
-    return Effect.gen(function* () {
+    return Effect.gen(function* (this: MEXCSigningService) {
       const validTimestamp = timestamp ?? Date.now();
       
       // Validate timestamp
@@ -90,7 +90,7 @@ export class MEXCSigningService {
       const sortedParams = Object.keys(queryParams)
         .sort()
         .reduce((result, key) => {
-          const value = queryParams[key];
+          const value = queryParams[key as keyof typeof queryParams];
           if (value !== undefined && value !== null) {
             result[key] = value.toString();
           }
@@ -109,7 +109,7 @@ export class MEXCSigningService {
     params: Record<string, string | number>,
     timestamp?: number
   ): Effect.Effect<{ queryString: string; signature: string }, MEXCApiError> => {
-    return Effect.gen(function* () {
+    return Effect.gen(function* (this: MEXCSigningService) {
       // First validate the secret key
       yield* this.validateSecretKey();
 
@@ -131,7 +131,7 @@ export class MEXCSigningService {
     queryString: string,
     expectedSignature: string
   ): Effect.Effect<boolean, MEXCApiError> => {
-    return Effect.gen(function* () {
+    return Effect.gen(function* (this: MEXCSigningService) {
       const actualSignature = yield* this.generateSignature(queryString);
       return actualSignature === expectedSignature;
     });
@@ -143,7 +143,7 @@ export class MEXCSigningService {
     secretKeyPrefix: string;
     algorithm: string;
   }, MEXCApiError> => {
-    return Effect.gen(function* () {
+    return Effect.gen(function* (this: MEXCSigningService) {
       yield* this.validateSecretKey();
 
       return {

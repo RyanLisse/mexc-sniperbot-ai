@@ -1,32 +1,30 @@
-import { Context, Effect, pipe, Schema } from "effect";
+import { Context, Effect, pipe, Schema, Schedule } from "effect";
 
 // Error types for the trading system
-export class TradingError extends Schema.TaggedError("TradingError")<{
-  message: string;
-  code: string;
-  timestamp: Date;
-}> {}
+export class TradingError extends Schema.TaggedError<TradingError>()("TradingError", {
+  message: Schema.String,
+  code: Schema.String,
+  timestamp: Schema.DateFromSelf,
+}) {}
 
-export class MEXCApiError extends Schema.TaggedError("MEXCApiError")<{
-  message: string;
-  code: string;
-  statusCode: number;
-  timestamp: Date;
-}> {}
+export class MEXCApiError extends Schema.TaggedError<MEXCApiError>()("MEXCApiError", {
+  message: Schema.String,
+  code: Schema.String,
+  statusCode: Schema.optional(Schema.Number),
+  timestamp: Schema.DateFromSelf,
+}) {}
 
-export class DatabaseError extends Schema.TaggedError("DatabaseError")<{
-  message: string;
-  query: string;
-  timestamp: Date;
-}> {}
+export class DatabaseError extends Schema.TaggedError<DatabaseError>()("DatabaseError", {
+  message: Schema.String,
+  code: Schema.String,
+  timestamp: Schema.DateFromSelf,
+}) {}
 
-export class ConfigurationError extends Schema.TaggedError(
-  "ConfigurationError"
-)<{
-  message: string;
-  field: string;
-  timestamp: Date;
-}> {}
+export class ConfigurationError extends Schema.TaggedError<ConfigurationError>()("ConfigurationError", {
+  message: Schema.String,
+  field: Schema.optional(Schema.String),
+  timestamp: Schema.DateFromSelf,
+}) {}
 
 // Service interfaces for dependency injection
 export class MEXCApiClient extends Context.Tag("MEXCApiClient")<
@@ -131,30 +129,24 @@ export const timeoutConfig = {
 export const withRetry = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
   policy = retryPolicy
-): Effect.Effect<A, E | TimeoutException, R> =>
-  pipe(effect, Effect.retry(policy), Effect.timeout(timeoutConfig.apiCall));
+): Effect.Effect<A, E | Effect.TimeoutException, R> => pipe(
+  effect,
+  Effect.retry(Schedule.exponential(1_000)),
+  Effect.timeout(timeoutConfig.apiCall)
+);
 
 export const withLogging = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
   operation: string
-): Effect.Effect<A, E, R> =>
-  pipe(
-    effect,
-    Effect.tapError((error) =>
-      Logger.pipe(
-        Effect.flatMap((logger) =>
-          logger.error(`Operation failed: ${operation}`, error)
-        )
-      )
-    ),
-    Effect.tap((result) =>
-      Logger.pipe(
-        Effect.flatMap((logger) =>
-          logger.info(`Operation completed: ${operation}`, { result })
-        )
-      )
-    )
-  );
+): Effect.Effect<A, E, R> => pipe(
+  effect,
+  Effect.tapError((error) =>
+    Effect.logError(`Operation failed: ${operation}`, error)
+  ),
+  Effect.tap((result) =>
+    Effect.logInfo(`Operation completed: ${operation}`, { result })
+  )
+);
 
 // Circuit breaker pattern for API resilience
 export class CircuitBreaker {

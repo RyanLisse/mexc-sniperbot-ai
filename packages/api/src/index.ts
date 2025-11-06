@@ -1,8 +1,10 @@
-import { initTRPC, TRPCError } from "@trpc/server";
+import { initTRPC } from "@trpc/server";
 import { Effect } from "effect";
-import type { Context } from "./context";
+import type { DatabaseClient } from "@mexc-sniperbot-ai/db";
+import { db } from "@mexc-sniperbot-ai/db";
+import type { CreateContextOptions, Context } from "./context";
 
-export const t = initTRPC.context<Context>().create({
+const t = initTRPC.context<Context>().create({
   errorFormatter: ({ shape, error }) => ({
     ...shape,
     data: {
@@ -33,8 +35,9 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
 });
 
 // Effect-TS integration helper
-export const effectProcedure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-  publicProcedure.mutation(async () => {
-    const result = await Effect.runPromise(effect);
-    return result;
-  });
+export const effectProcedure = <A, E>(
+  effect: Effect.Effect<A, E, never>
+) => publicProcedure.mutation(async () => {
+  const result = await Effect.runPromise(effect);
+  return result;
+});

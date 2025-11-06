@@ -83,9 +83,9 @@ description: "Task list for MEXC Sniper Bot AI implementation"
 - [X] T028 [US1] Create configuration router procedures in packages/api/src/routers/configuration.ts
 - [X] T029 [US1] Create trading router procedures in packages/api/src/routers/trading.ts
 - [X] T030 [US1] Create monitoring router procedures in packages/api/src/routers/monitoring.ts
-- [ ] T031 [US1] Implement background listing monitor in packages/api/src/services/listing-monitor.ts
-- [ ] T032 [US1] Create trade attempt logging service in packages/api/src/services/trade-logger.ts
-- [ ] T033 [US1] Implement performance monitoring service in packages/api/src/services/performance-monitor.ts
+- [X] T031 [US1] Implement background listing monitor in packages/api/src/services/listing-monitor.ts
+- [X] T032 [US1] Create trade attempt logging service in packages/api/src/services/trade-logger.ts
+- [X] T033 [US1] Implement performance monitoring service in packages/api/src/services/performance-monitor.ts
 - [ ] T034 [US1] Create basic dashboard page in apps/web/src/app/dashboard/page.tsx
 - [ ] T035 [US1] Implement real-time trade status display in apps/web/src/components/trade-status.tsx
 - [ ] T036 [US1] Create listing events display component in apps/web/src/components/listing-events.tsx

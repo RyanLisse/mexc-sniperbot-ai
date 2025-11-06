@@ -69,11 +69,11 @@ description: "Task list for MEXC Sniper Bot AI implementation"
 
 ### Implementation for User Story 1
 
-- [ ] T017 [P] [US1] Create TradingConfiguration schema in packages/db/src/schema/configuration.ts
-- [ ] T018 [P] [US1] Create ListingEvent schema in packages/db/src/schema/listing-events.ts
-- [ ] T019 [P] [US1] Create TradeAttempt schema in packages/db/src/schema/trade-attempts.ts
-- [ ] T020 [P] [US1] Create BotStatus schema in packages/db/src/schema/bot-status.ts
-- [ ] T021 [P] [US1] Create database indexes for performance optimization in packages/db/src/schema/indexes.ts
+- [X] T017 [P] [US1] Create TradingConfiguration schema in packages/db/src/schema/configuration.ts
+- [X] T018 [P] [US1] Create ListingEvent schema in packages/db/src/schema/listing-events.ts
+- [X] T019 [P] [US1] Create TradeAttempt schema in packages/db/src/schema/trade-attempts.ts
+- [X] T020 [P] [US1] Create BotStatus schema in packages/db/src/schema/bot-status.ts
+- [X] T021 [P] [US1] Create database indexes for performance optimization in packages/db/src/schema/indexes.ts
 - [X] T022 [P] [US1] Implement MEXC API client service in packages/api/src/services/mexc-client.ts
 - [X] T023 [P] [US1] Implement HMAC SHA256 request signing in packages/api/src/services/mexc-signing.ts
 - [X] T024 [US1] Create listing detection service in packages/api/src/services/listing-detector.ts

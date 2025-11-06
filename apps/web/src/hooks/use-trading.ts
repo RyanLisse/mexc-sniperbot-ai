@@ -1,6 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+// Import types from backend (these would normally come from a shared types package)
+type TradeLogFilters = {
+  symbol?: string;
+  status?: "SUCCESS" | "FAILED" | "PENDING";
+  strategy?: "MARKET" | "LIMIT";
+  startDate?: Date;
+  endDate?: Date;
+  limit?: number;
+  offset?: number;
+};
+
 // Types for API responses
 type TradingStats = {
   totalTrades: number;
@@ -99,8 +110,8 @@ const API_BASE = "/api/trading";
 export const tradingKeys = {
   all: ["trading"] as const,
   stats: () => [...tradingKeys.all, "stats"] as const,
-  history: (filters?: any) => [...tradingKeys.all, "history", filters] as const,
-  listings: (filters?: any) => [...tradingKeys.all, "listings", filters] as const,
+  history: (filters?: TradeLogFilters) => [...tradingKeys.all, "history", filters] as const,
+  listings: (filters?: TradeLogFilters) => [...tradingKeys.all, "listings", filters] as const,
   botStatus: () => [...tradingKeys.all, "botStatus"] as const,
   systemHealth: () => [...tradingKeys.all, "systemHealth"] as const,
 };
@@ -149,8 +160,8 @@ export const useTradeHistory = (filters?: {
     queryFn: () => apiFetch<{ trades: TradeHistoryItem[]; total: number }>(
       `${API_BASE}/history?${params.toString()}`
     ),
-    refetchInterval: 10000, // Refetch every 10 seconds
-    staleTime: 5000,
+    refetchInterval: 15_000, // 15 seconds
+    staleTime: 30_000, // 30 seconds
   });
 };
 

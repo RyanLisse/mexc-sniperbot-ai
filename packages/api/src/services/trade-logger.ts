@@ -1,6 +1,6 @@
 import { Effect, Layer, Context } from "effect";
 import { db } from "@mexc-sniperbot-ai/db";
-import { eq, and, desc, gte, lte } from "drizzle-orm";
+import { eq, and, desc, gte, lte, lt } from "drizzle-orm";
 import { tradeAttempt } from "@mexc-sniperbot-ai/db";
 import { TradingError, TradingLogger } from "../lib/effect";
 import type { TradeResult } from "./trade-executor";

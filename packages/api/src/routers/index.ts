@@ -1,5 +1,5 @@
 import { publicProcedure, router } from "../index";
-import { todoRouter } from "./todos";
+import { todoRouter } from "./todo";
 import { configurationRouter } from "./configuration";
 import { tradingRouter } from "./trading";
 import { monitoringRouter } from "./monitoring";
@@ -23,11 +23,13 @@ export const appRouter = router({
       monitoring: "System monitoring and health checks",
     },
   })),
+  auth: authRouter,
+  todos: todoRouter,
   configuration: configurationRouter,
   trading: tradingRouter,
   monitoring: monitoringRouter,
-  auth: authRouter,
-  todo: todoRouter, // Keep for development/testing
 });
 
 export type AppRouter = typeof appRouter;
+
+export { router, publicProcedure } from "../index";

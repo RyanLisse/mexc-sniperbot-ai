@@ -27,9 +27,9 @@ export type MonitoringStats = {
 
 // Global state for monitoring (simplified for this implementation)
 let isRunning = false;
-let startTime?: Date;
+let startTime: Date | undefined;
 let totalCycles = 0;
-let lastCycleTime?: Date;
+let lastCycleTime: Date | undefined;
 let cycleTimes: number[] = [];
 let newListingsDetected = 0;
 let errorsEncountered = 0;

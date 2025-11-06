@@ -26,6 +26,12 @@ export class ConfigurationError extends Schema.TaggedError<ConfigurationError>()
   timestamp: Schema.DateFromSelf,
 }) {}
 
+export class MonitoringError extends Schema.TaggedError<MonitoringError>()("MonitoringError", {
+  message: Schema.String,
+  code: Schema.optional(Schema.String),
+  timestamp: Schema.DateFromSelf,
+}) {}
+
 // Service interfaces for dependency injection
 export class MEXCApiClient extends Context.Tag("MEXCApiClient")<
   MEXCApiClient,

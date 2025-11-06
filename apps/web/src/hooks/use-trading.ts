@@ -228,7 +228,8 @@ export const useBotControl = () => {
         body: JSON.stringify(data),
       }),
     onSuccess: (data) => {
-      toast.success(data.result.message || `Bot ${data.action} successful`);
+      const result = data.result as { message?: string };
+      toast.success(result.message || `Bot ${data.action} successful`);
       // Invalidate bot status query
       queryClient.invalidateQueries({ queryKey: tradingKeys.botStatus() });
     },

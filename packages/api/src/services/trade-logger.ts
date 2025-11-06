@@ -1,7 +1,7 @@
 import { Effect, Layer, Context } from "effect";
 import { db } from "@mexc-sniperbot-ai/db";
 import { eq, and, desc, gt, lt, gte, lte } from "drizzle-orm";
-import { tradeAttempt, listingEvent } from "@mexc-sniperbot-ai/db";
+import { tradeAttempt } from "@mexc-sniperbot-ai/db";
 import { TradingError, TradingLogger } from "../lib/effect";
 import type { TradeResult } from "./trade-executor";
 
@@ -19,34 +19,34 @@ export type TradeLoggerService = {
 export const TradeLoggerService = Context.Tag<TradeLoggerService>("TradeLoggerService");
 
 // Type definitions
-export interface TradeAttemptLogData {
+export type TradeAttemptLogData = {
   id: string;
   symbol: string;
   strategy: "MARKET" | "LIMIT";
   quantity: string;
   targetPrice?: string;
-  metadata?: Record<string, unknown>;
-}
+  createdAt: Date;
+};
 
-export interface TradeLogFilters {
+export type TradeLogFilters = {
   symbol?: string;
   status?: "SUCCESS" | "FAILED" | "PENDING";
   strategy?: "MARKET" | "LIMIT";
-  startTime?: Date;
-  endTime?: Date;
+  startDate?: Date;
+  endDate?: Date;
   limit?: number;
   offset?: number;
-}
+};
 
-export interface TimeRange {
+export type TimeRange = {
   start: Date;
   end: Date;
-}
+};
 
-export interface TradeLogEntry {
+export type TradeLogEntry = {
   id: string;
   symbol: string;
-  status: string;
+  status: "SUCCESS" | "FAILED" | "PENDING";
   strategy: "MARKET" | "LIMIT";
   quantity: string;
   targetPrice?: string;
@@ -56,22 +56,22 @@ export interface TradeLogEntry {
   completedAt?: Date;
   executionTimeMs?: number;
   error?: string;
-  metadata?: Record<string, unknown>;
-}
+  value: number;
+};
 
-export interface TradeLogStatistics {
-  total: number;
-  successful: number;
-  failed: number;
-  pending: number;
+export type TradeLogStatistics = {
+  totalTrades: number;
+  successfulTrades: number;
+  failedTrades: number;
+  pendingTrades: number;
   successRate: number;
   averageExecutionTime: number;
   totalVolume: number;
   totalValue: number;
+  averageTradeValue: number;
   mostTradedSymbol: string;
-  fastestExecution: number;
-  slowestExecution: number;
-}
+  mostUsedStrategy: "MARKET" | "LIMIT";
+};
 
 // Implementation class
 export class TradeLogger implements TradeLoggerService {

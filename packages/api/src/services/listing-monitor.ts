@@ -15,16 +15,15 @@ export type ListingMonitorService = {
 export const ListingMonitorService = Context.Tag<ListingMonitorService>("ListingMonitorService");
 
 // Monitoring statistics type
-export interface MonitoringStats {
+export type MonitoringStats = {
   isRunning: boolean;
   startTime?: Date;
   totalCycles: number;
   lastCycleTime?: Date;
   averageCycleTime: number;
-  newListingsDetected: number;
-  errorsEncountered: number;
-  uptime: number;
-}
+  errorsSinceStart: number;
+  lastError?: string;
+};
 
 // Implementation class
 export class ListingMonitor implements ListingMonitorService {
@@ -37,7 +36,7 @@ export class ListingMonitor implements ListingMonitorService {
   private newListingsDetected = 0;
   private errorsEncountered = 0;
 
-  private readonly MONITORING_INTERVAL_MS = 5_000; // 5 seconds
+  private readonly MONITORING_INTERVAL = 5000; // 5 seconds
   private readonly MAX_CYCLE_TIME_HISTORY = 100;
 
   // Start the background monitoring process

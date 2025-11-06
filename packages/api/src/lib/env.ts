@@ -1,32 +1,37 @@
-import { z } from "zod";
 import { Effect } from "effect";
+import { z } from "zod";
 
 // Environment schema validation
 const envSchema = z.object({
   // Database
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
-  
+
   // MEXC API Configuration
   MEXC_API_KEY: z.string().min(1, "MEXC_API_KEY is required"),
   MEXC_SECRET_KEY: z.string().min(1, "MEXC_SECRET_KEY is required"),
   MEXC_BASE_URL: z.string().url().default("https://api.mexc.com"),
-  
+
   // Application
-  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  NODE_ENV: z
+    .enum(["development", "production", "test"])
+    .default("development"),
   NEXTAUTH_SECRET: z.string().min(1, "NEXTAUTH_SECRET is required"),
   NEXTAUTH_URL: z.string().url().optional(),
-  
+
   // Logging
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
-  
+
   // Performance
   API_TIMEOUT_MS: z.string().transform(Number).default("5000"),
   DB_QUERY_TIMEOUT_MS: z.string().transform(Number).default("1000"),
-  
+
   // Security
   ALLOWED_ORIGINS: z.string().default("http://localhost:3001"),
-  CORS_ENABLED: z.string().transform(val => val === "true").default("true"),
-  
+  CORS_ENABLED: z
+    .string()
+    .transform((val) => val === "true")
+    .default("true"),
+
   // Trading Configuration
   MAX_TRADES_PER_HOUR: z.string().transform(Number).default("10"),
   DEFAULT_POLLING_INTERVAL_MS: z.string().transform(Number).default("5000"),
@@ -44,10 +49,14 @@ export const validateEnvironment = Effect.try({
   },
   catch: (error) => {
     if (error instanceof z.ZodError) {
-      const errors = error.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', ');
+      const errors = error.errors
+        .map((err) => `${err.path.join(".")}: ${err.message}`)
+        .join(", ");
       throw new Error(`Environment validation failed: ${errors}`);
     }
-    throw new Error(`Environment validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Environment validation failed: ${error instanceof Error ? error.message : "Unknown error"}`
+    );
   },
 });
 
@@ -58,7 +67,7 @@ export function getEnvironment(): Environment {
   if (cachedEnv) {
     return cachedEnv;
   }
-  
+
   const env = Effect.runSync(validateEnvironment);
   cachedEnv = env;
   return env;
@@ -113,7 +122,9 @@ export function getPerformanceConfig() {
 export function getSecurityConfig() {
   const env = getEnvironment();
   return {
-    allowedOrigins: env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()),
+    allowedOrigins: env.ALLOWED_ORIGINS.split(",").map((origin) =>
+      origin.trim()
+    ),
     corsEnabled: env.CORS_ENABLED,
     isProduction: env.NODE_ENV === "production",
   };
@@ -122,26 +133,28 @@ export function getSecurityConfig() {
 // Environment validation for startup
 export const validateStartupEnvironment = Effect.gen(function* () {
   const env = yield* validateEnvironment;
-  
+
   // Validate critical configurations
   if (!env.DATABASE_URL) {
     throw new Error("DATABASE_URL is required for application startup");
   }
-  
-  if (!env.MEXC_API_KEY || !env.MEXC_SECRET_KEY) {
-    throw new Error("MEXC API credentials are required for trading functionality");
+
+  if (!(env.MEXC_API_KEY && env.MEXC_SECRET_KEY)) {
+    throw new Error(
+      "MEXC API credentials are required for trading functionality"
+    );
   }
-  
+
   if (env.NODE_ENV === "production" && !env.NEXTAUTH_URL) {
     throw new Error("NEXTAUTH_URL is required in production");
   }
-  
+
   yield* Effect.logInfo("Environment validation successful", {
     nodeEnv: env.NODE_ENV,
     mexcBaseUrl: env.MEXC_BASE_URL,
     logLevel: env.LOG_LEVEL,
   });
-  
+
   return env;
 });
 

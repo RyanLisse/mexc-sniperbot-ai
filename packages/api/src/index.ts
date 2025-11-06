@@ -33,11 +33,8 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
 });
 
 // Effect-TS integration helper
-export const effectProcedure = <A, E, R>(
-  effect: Effect.Effect<A, E, R>
-) => {
-  return publicProcedure.mutation(async ({ ctx }) => {
+export const effectProcedure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  publicProcedure.mutation(async () => {
     const result = await Effect.runPromise(effect);
     return result;
   });
-};

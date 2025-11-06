@@ -3,33 +3,31 @@ import { todoRouter } from "./todo";
 
 // Placeholder routers - will be implemented in user stories
 const configurationRouter = router({
-  getConfiguration: publicProcedure.query(() => {
-    return { message: "Configuration router - to be implemented" };
-  }),
+  getConfiguration: publicProcedure.query(() => ({
+    message: "Configuration router - to be implemented",
+  })),
 });
 
 const tradingRouter = router({
-  getTradeHistory: publicProcedure.query(() => {
-    return { message: "Trading router - to be implemented" };
-  }),
+  getTradeHistory: publicProcedure.query(() => ({
+    message: "Trading router - to be implemented",
+  })),
 });
 
 const monitoringRouter = router({
-  getBotStatus: publicProcedure.query(() => {
-    return { message: "Monitoring router - to be implemented" };
-  }),
+  getBotStatus: publicProcedure.query(() => ({
+    message: "Monitoring router - to be implemented",
+  })),
 });
 
 const authRouter = router({
-  getCurrentUser: publicProcedure.query(() => {
-    return { message: "Auth router - to be implemented" };
-  }),
+  getCurrentUser: publicProcedure.query(() => ({
+    message: "Auth router - to be implemented",
+  })),
 });
 
 export const appRouter = router({
-  healthCheck: publicProcedure.query(() => {
-    return "OK";
-  }),
+  healthCheck: publicProcedure.query(() => "OK"),
   configuration: configurationRouter,
   trading: tradingRouter,
   monitoring: monitoringRouter,

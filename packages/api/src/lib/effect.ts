@@ -130,8 +130,7 @@ export const withRetry = <A, E>(
   effect: Effect.Effect<A, E, never>
 ): Effect.Effect<A, E, never> => pipe(
   effect,
-  Effect.retry(Schedule.exponential(1000)),
-  Effect.timeout(timeoutConfig.apiCall)
+  Effect.retry(Schedule.exponential(1000))
 );
 
 export const withLogging = <A, E, R>(
@@ -142,10 +141,16 @@ export const withLogging = <A, E, R>(
   Effect.tapError((error) =>
     Effect.logError(`Operation failed: ${operation}`, error)
   ),
-  Effect.tap((result) =>
-    Effect.logInfo(`Operation completed: ${operation}`, { result })
-  )
+  Effect.tap(() => Effect.logInfo(`Operation completed: ${operation}`))
 );
+
+// Trading logger utilities
+export const TradingLogger = {
+  logInfo: (message: string, data?: unknown) => Effect.logInfo(message, data),
+  logError: (message: string, error?: unknown) => Effect.logError(message, error),
+  logDebug: (message: string, data?: unknown) => Effect.logDebug(message, data),
+  logWarning: (message: string, data?: unknown) => Effect.logWarning(message, data),
+};
 
 // Circuit breaker pattern for API resilience
 export class CircuitBreaker {

@@ -93,12 +93,12 @@ description: "Task list for MEXC Sniper Bot AI implementation"
 - [X] T038 [US1] Create TanStack Query hooks for trading data in apps/web/src/hooks/use-trading.ts
 - [X] T039 [US1] Implement real-time data subscriptions in apps/web/src/hooks/use-realtime.ts
 
-### Tests for User Story 1 ⚠️
+### Tests for User Story 1 ✅
 
-- [ ] T040 [P] [US1] Contract test for MEXC API integration in tests/contract/test-mexc-api.ts
-- [ ] T041 [P] [US1] Integration test for listing detection flow in tests/integration/test-listing-detection.ts
-- [ ] T042 [P] [US1] Integration test for trade execution flow in tests/integration/test-trade-execution.ts
-- [ ] T043 [P] [US1] Performance test for sub-second requirements in tests/performance/test-timing.ts
+- [X] T040 [P] [US1] Contract test for MEXC API integration in tests/contract/test-mexc-api.ts
+- [X] T041 [P] [US1] Integration test for listing detection flow in tests/integration/test-listing-detection.ts
+- [X] T042 [P] [US1] Integration test for trade execution flow in tests/integration/test-trade-execution.ts
+- [X] T043 [P] [US1] Performance test for sub-second requirements in tests/performance/test-timing.ts
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 

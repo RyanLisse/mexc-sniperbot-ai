@@ -6,14 +6,14 @@ import { TradingError, TradingLogger } from "../lib/effect";
 import type { TradeResult } from "./trade-executor";
 
 // Service interface for dependency injection
-export interface TradeLoggerService {
+export type TradeLoggerService = {
   logTradeAttempt: (tradeData: TradeAttemptLogData) => Effect.Effect<void, TradingError>;
   logTradeSuccess: (tradeData: TradeResult) => Effect.Effect<void, TradingError>;
   logTradeFailure: (tradeData: TradeResult, error: Error) => Effect.Effect<void, TradingError>;
   getTradeLogs: (filters: TradeLogFilters) => Effect.Effect<TradeLogEntry[], TradingError>;
   getTradeStatistics: (timeRange: TimeRange) => Effect.Effect<TradeLogStatistics, TradingError>;
   exportTradeLogs: (filters: TradeLogFilters) => Effect.Effect<string, TradingError>;
-}
+};
 
 // Service tag
 export const TradeLoggerService = Context.Tag<TradeLoggerService>("TradeLoggerService");

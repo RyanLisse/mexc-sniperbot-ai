@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 // Types for API responses
-interface TradingStats {
+type TradingStats = {
   totalTrades: number;
   successfulTrades: number;
   failedTrades: number;
@@ -11,9 +11,9 @@ interface TradingStats {
   totalVolume: number;
   totalValue: number;
   averageTradeValue: number;
-}
+};
 
-interface TradeHistoryItem {
+type TradeHistoryItem = {
   id: string;
   symbol: string;
   status: "SUCCESS" | "FAILED" | "PENDING";
@@ -27,9 +27,9 @@ interface TradeHistoryItem {
   executionTime: number;
   error?: string;
   value: number;
-}
+};
 
-interface ListingEvent {
+type ListingEvent = {
   id: string;
   symbol: string;
   eventType: string;
@@ -40,9 +40,9 @@ interface ListingEvent {
     volume?: string;
     change24h?: string;
   };
-}
+};
 
-interface BotStatus {
+type BotStatus = {
   isRunning: boolean;
   lastHeartbeat: string;
   mexcApiStatus: string;
@@ -50,9 +50,9 @@ interface BotStatus {
   uptime: number;
   version: string;
   startTime: string;
-}
+};
 
-interface SystemHealth {
+type SystemHealth = {
   status: "healthy" | "degraded" | "unhealthy";
   components: Record<string, {
     status: "operational" | "degraded" | "down";
@@ -66,31 +66,31 @@ interface SystemHealth {
     message: string;
   }>;
   uptime: number;
-}
+};
 
-interface ManualTradeRequest {
+type ManualTradeRequest = {
   symbol: string;
   strategy: "MARKET" | "LIMIT";
-}
+};
 
-interface ManualTradeResponse {
+type ManualTradeResponse = {
   success: boolean;
   message: string;
   symbol: string;
   strategy: string;
   timestamp: string;
-}
+};
 
-interface BotControlRequest {
+type BotControlRequest = {
   action: "start" | "stop" | "restart" | "status";
-}
+};
 
-interface BotControlResponse {
+type BotControlResponse = {
   success: boolean;
   action: string;
-  result: any;
+  result: unknown;
   timestamp: string;
-}
+};
 
 // API base URL
 const API_BASE = "/api/trading";

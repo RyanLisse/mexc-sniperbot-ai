@@ -1,15 +1,15 @@
 import { Effect, Layer, Context } from "effect";
-import { listingDetector, type ListingDetectorService } from "./listing-detector";
-import { tradingOrchestrator, type TradingOrchestratorService } from "./trading-orchestrator";
+import { listingDetector } from "./listing-detector";
+import { tradingOrchestrator } from "./trading-orchestrator";
 import { TradingError, TradingLogger } from "../lib/effect";
 
 // Service interface for dependency injection
-export interface ListingMonitorService {
+export type ListingMonitorService = {
   startMonitoring: () => Effect.Effect<void, TradingError>;
   stopMonitoring: () => Effect.Effect<void, TradingError>;
   isMonitoring: () => Effect.Effect<boolean, TradingError>;
   getMonitoringStats: () => Effect.Effect<MonitoringStats, TradingError>;
-}
+};
 
 // Service tag
 export const ListingMonitorService = Context.Tag<ListingMonitorService>("ListingMonitorService");

@@ -1,7 +1,5 @@
-import { initTRPC } from "@trpc/server";
+import { initTRPC, TRPCError } from "@trpc/server";
 import { Effect } from "effect";
-import type { DatabaseClient } from "@mexc-sniperbot-ai/db";
-import { db } from "@mexc-sniperbot-ai/db";
 import type { CreateContextOptions, Context } from "./context";
 
 const t = initTRPC.context<Context>().create({

@@ -4,13 +4,13 @@ import { toast } from "sonner";
 import { tradingKeys } from "./use-trading";
 
 // Types for WebSocket messages
-interface WebSocketMessage {
+type WebSocketMessage = {
   type: "trade_update" | "bot_status" | "listing_detected" | "system_alert" | "performance_metric";
-  data: any;
+  data: unknown;
   timestamp: string;
-}
+};
 
-interface TradeUpdateMessage {
+type TradeUpdateMessage = {
   type: "trade_update";
   data: {
     id: string;
@@ -23,9 +23,9 @@ interface TradeUpdateMessage {
     value: number;
   };
   timestamp: string;
-}
+};
 
-interface BotStatusMessage {
+type BotStatusMessage = {
   type: "bot_status";
   data: {
     isRunning: boolean;
@@ -35,9 +35,9 @@ interface BotStatusMessage {
     uptime: number;
   };
   timestamp: string;
-}
+};
 
-interface ListingDetectedMessage {
+type ListingDetectedMessage = {
   type: "listing_detected";
   data: {
     id: string;
@@ -51,9 +51,9 @@ interface ListingDetectedMessage {
     };
   };
   timestamp: string;
-}
+};
 
-interface SystemAlertMessage {
+type SystemAlertMessage = {
   type: "system_alert";
   data: {
     severity: "low" | "medium" | "high" | "critical";
@@ -62,9 +62,9 @@ interface SystemAlertMessage {
     action?: string;
   };
   timestamp: string;
-}
+};
 
-interface PerformanceMetricMessage {
+type PerformanceMetricMessage = {
   type: "performance_metric";
   data: {
     executionTime: number;
@@ -74,7 +74,7 @@ interface PerformanceMetricMessage {
     cpuUsage: number;
   };
   timestamp: string;
-}
+};
 
 // WebSocket connection status
 type ConnectionStatus = "connecting" | "connected" | "disconnected" | "error";

@@ -25,7 +25,7 @@ const mockStats = {
   totalTrades: 247,
   successRate: 94.2,
   averageExecutionTime: 287,
-  totalValue: 125430.50,
+  totalValue: 125_430.50,
   uptime: 99.8,
   newListings: 12,
   activeListings: 3,

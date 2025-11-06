@@ -126,12 +126,11 @@ export const timeoutConfig = {
 };
 
 // Helper functions
-export const withRetry = <A, E, R>(
-  effect: Effect.Effect<A, E, R>,
-  policy = retryPolicy
-): Effect.Effect<A, E | Effect.TimeoutException, R> => pipe(
+export const withRetry = <A, E>(
+  effect: Effect.Effect<A, E, never>
+): Effect.Effect<A, E | Effect.TimeoutException, never> => pipe(
   effect,
-  Effect.retry(Schedule.exponential(1_000)),
+  Effect.retry(Schedule.exponential(1000)),
   Effect.timeout(timeoutConfig.apiCall)
 );
 

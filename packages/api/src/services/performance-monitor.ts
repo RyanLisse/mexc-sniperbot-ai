@@ -6,13 +6,13 @@ import { TradingError, TradingLogger } from "../lib/effect";
 import { mexcClient } from "./mexc-client";
 
 // Service interface for dependency injection
-export interface PerformanceMonitorService {
+export type PerformanceMonitorService = {
   collectMetrics: () => Effect.Effect<PerformanceMetrics, TradingError>;
   getMetricsHistory: (timeRange: TimeRange) => Effect.Effect<MetricsHistory[], TradingError>;
   analyzePerformance: (timeRange: TimeRange) => Effect.Effect<PerformanceAnalysis, TradingError>;
   getSystemHealth: () => Effect.Effect<SystemHealth, TradingError>;
   generatePerformanceReport: (timeRange: TimeRange) => Effect.Effect<PerformanceReport, TradingError>;
-}
+};
 
 // Service tag
 export const PerformanceMonitorService = Context.Tag<PerformanceMonitorService>("PerformanceMonitorService");

@@ -32,4 +32,5 @@ export const appRouter = router({
 
 export type AppRouter = typeof appRouter;
 
+// Export router and procedures for other modules
 export { router, publicProcedure } from "../index";

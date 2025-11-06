@@ -2,6 +2,7 @@ import { Effect, Layer, Context } from "effect";
 import { listingDetector } from "./listing-detector";
 import { tradingOrchestrator } from "./trading-orchestrator";
 import { TradingError, TradingLogger } from "../lib/effect";
+import { mexcClient } from "./mexc-client";
 
 // Service interface for dependency injection
 export type ListingMonitorService = {
@@ -29,13 +30,11 @@ export type MonitoringStats = {
 let isRunning = false;
 let startTime: Date | undefined;
 let totalCycles = 0;
-let lastCycleTime: Date | undefined;
 let cycleTimes: number[] = [];
-let newListingsDetected = 0;
 let errorsEncountered = 0;
 let monitoringInterval: NodeJS.Timeout | null = null;
 
-const MONITORING_INTERVAL = 5000; // 5 seconds
+const MONITORING_INTERVAL = 5_000; // 5 seconds
 const MAX_CYCLE_TIME_HISTORY = 100;
 
 // Implementation
@@ -60,7 +59,7 @@ export const listingMonitor: ListingMonitorService = {
         // Start monitoring
         isRunning = true;
         startTime = new Date();
-        totalCycles = 0;
+        totalCycles = 1;
         errorsEncountered = 0;
 
         yield* TradingLogger.logInfo("Listing monitor started successfully");
@@ -116,23 +115,19 @@ export const listingMonitor: ListingMonitorService = {
   },
 
   // Check if monitoring is currently active
-  isMonitoring: (): Effect.Effect<boolean, TradingError> => {
-    return Effect.succeed(isRunning);
-  },
+  isMonitoring: () => Effect.succeed(isRunning),
 
   // Get current monitoring statistics
-  getMonitoringStats: (): Effect.Effect<MonitoringStats, TradingError> => {
-    return Effect.succeed({
-      isRunning,
-      startTime,
-      totalCycles,
-      lastCycleTime,
-      averageCycleTime: cycleTimes.length > 0 
-        ? cycleTimes.reduce((sum, time) => sum + time, 0) / cycleTimes.length 
-        : 0,
-      errorsSinceStart: errorsEncountered,
-    });
-  },
+  getMonitoringStats: () => Effect.succeed({
+    isRunning,
+    startTime,
+    totalCycles,
+    lastCycleTime,
+    averageCycleTime: cycleTimes.length > 0 
+      ? cycleTimes.reduce((sum, time) => sum + time, 0) / cycleTimes.length 
+      : 0,
+    errorsSinceStart: errorsEncountered,
+  }),
 };
 
 // Internal function to start the monitoring loop
@@ -145,7 +140,7 @@ const startMonitoringLoop = (): Effect.Effect<void, TradingError> => {
       // This is simplified - in a real implementation, 
       // this would be wrapped in Effect properly
       performMonitoringCycle().catch((error) => {
-        errorsEncountered++;
+        errorsEncountered = errorsEncountered + 1;
         TradingLogger.logError("Monitoring cycle failed", error);
       });
     }, MONITORING_INTERVAL);
@@ -163,7 +158,7 @@ const performMonitoringCycle = async (): Promise<void> => {
     await Effect.runPromise(listingDetector.checkForNewListings());
 
     // Update statistics
-    totalCycles++;
+    totalCycles = totalCycles + 1;
     lastCycleTime = new Date();
     const cycleTime = Date.now() - cycleStartTime;
     

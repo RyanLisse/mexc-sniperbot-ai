@@ -357,15 +357,15 @@ export const getTradeStatusColor = (status: string): "default" | "destructive" |
 };
 
 // Custom hook for polling with interval control
-export const useTradingPolling = (
-  queryFn: () => Promise<any>,
+export const useTradingPolling = <T>(
+  queryFn: () => Promise<T>,
   queryKey: string[],
   options?: {
     interval?: number;
     enabled?: boolean;
   }
 ) => {
-  const { interval = 5000, enabled = true } = options || {};
+  const { interval = 5_000, enabled = true } = options || {};
 
   return useQuery({
     queryKey,

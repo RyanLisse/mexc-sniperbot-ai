@@ -1,12 +1,16 @@
-import { router, protectedProcedure, publicProcedure } from "../index";
+import {
+  botStatus,
+  db,
+  listingEvent,
+  tradeAttempt,
+} from "@mexc-sniperbot-ai/db";
+import { and, desc, eq, gt } from "drizzle-orm";
 import { Effect } from "effect";
 import { z } from "zod";
-import { db } from "@mexc-sniperbot-ai/db";
-import { eq, and, desc, gt } from "drizzle-orm";
-import { botStatus, tradeAttempt, listingEvent } from "@mexc-sniperbot-ai/db";
+import { publicProcedure, router } from "../index";
 import { MonitoringError, TradingLogger } from "../lib/effect";
-import { tradingOrchestrator } from "../services/trading-orchestrator";
 import { mexcClient } from "../services/mexc-client";
+import { tradingOrchestrator } from "../services/trading-orchestrator";
 
 // Zod schemas for validation
 const healthCheckSchema = z.object({
@@ -39,18 +43,23 @@ export const monitoringRouter = router({
     .query(async ({ input }) => {
       return Effect.runPromise(
         Effect.gen(function* () {
-          yield* TradingLogger.logInfo("Health check requested", { detailed: input.detailed });
+          yield* TradingLogger.logInfo("Health check requested", {
+            detailed: input.detailed,
+          });
 
           const startTime = Date.now();
           const health: {
             status: "healthy" | "degraded" | "unhealthy";
             timestamp: string;
             uptime: number;
-            checks: Record<string, {
-              status: "pass" | "fail" | "warn";
-              message?: string;
-              responseTime?: number;
-            }>;
+            checks: Record<
+              string,
+              {
+                status: "pass" | "fail" | "warn";
+                message?: string;
+                responseTime?: number;
+              }
+            >;
           } = {
             status: "healthy",
             timestamp: new Date().toISOString(),
@@ -63,13 +72,16 @@ export const monitoringRouter = router({
             const botStatus = yield* tradingOrchestrator.getBotStatus();
             health.checks.bot = {
               status: botStatus.isRunning ? "pass" : "fail",
-              message: botStatus.isRunning ? "Bot is running" : "Bot is stopped",
+              message: botStatus.isRunning
+                ? "Bot is running"
+                : "Bot is stopped",
               responseTime: botStatus.apiResponseTime,
             };
           } catch (error) {
             health.checks.bot = {
               status: "fail",
-              message: error instanceof Error ? error.message : "Unknown bot error",
+              message:
+                error instanceof Error ? error.message : "Unknown bot error",
             };
             health.status = "degraded";
           }
@@ -80,16 +92,19 @@ export const monitoringRouter = router({
               const apiStartTime = Date.now();
               yield* mexcClient.getServerTime();
               const apiResponseTime = Date.now() - apiStartTime;
-              
+
               health.checks.mexcApi = {
-                status: apiResponseTime < 5_000 ? "pass" : "warn",
+                status: apiResponseTime < 5000 ? "pass" : "warn",
                 message: `API responded in ${apiResponseTime}ms`,
                 responseTime: apiResponseTime,
               };
             } catch (error) {
               health.checks.mexcApi = {
                 status: "fail",
-                message: error instanceof Error ? error.message : "API connectivity failed",
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : "API connectivity failed",
               };
               health.status = "unhealthy";
             }
@@ -110,25 +125,32 @@ export const monitoringRouter = router({
                 },
               });
               const dbResponseTime = Date.now() - dbStartTime;
-              
+
               health.checks.database = {
-                status: dbResponseTime < 1_000 ? "pass" : "warn",
+                status: dbResponseTime < 1000 ? "pass" : "warn",
                 message: `Database responded in ${dbResponseTime}ms`,
                 responseTime: dbResponseTime,
               };
             } catch (error) {
               health.checks.database = {
                 status: "fail",
-                message: error instanceof Error ? error.message : "Database connectivity failed",
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : "Database connectivity failed",
               };
               health.status = "unhealthy";
             }
           }
 
           // Determine overall health status
-          const failedChecks = Object.values(health.checks).filter(check => check.status === "fail");
-          const warnChecks = Object.values(health.checks).filter(check => check.status === "warn");
-          
+          const failedChecks = Object.values(health.checks).filter(
+            (check) => check.status === "fail"
+          );
+          const warnChecks = Object.values(health.checks).filter(
+            (check) => check.status === "warn"
+          );
+
           if (failedChecks.length > 0) {
             health.status = "unhealthy";
           } else if (warnChecks.length > 0) {
@@ -136,7 +158,7 @@ export const monitoringRouter = router({
           }
 
           const totalResponseTime = Date.now() - startTime;
-          
+
           yield* TradingLogger.logInfo("Health check completed", {
             status: health.status,
             responseTime: totalResponseTime,
@@ -152,7 +174,7 @@ export const monitoringRouter = router({
     }),
 
   // Get performance metrics
-  getPerformanceMetrics: protectedProcedure
+  getPerformanceMetrics: publicProcedure
     .input(performanceMetricsSchema)
     .query(async ({ input }) => {
       return Effect.runPromise(
@@ -166,10 +188,12 @@ export const monitoringRouter = router({
           try {
             // Get trade metrics
             const trades = yield* Effect.tryPromise({
-              try: () => db.select()
-                .from(tradeAttempt)
-                .where(gt(tradeAttempt.createdAt, since))
-                .orderBy(desc(tradeAttempt.createdAt)),
+              try: () =>
+                db
+                  .select()
+                  .from(tradeAttempt)
+                  .where(gt(tradeAttempt.createdAt, since))
+                  .orderBy(desc(tradeAttempt.createdAt)),
               catch: (error) => {
                 throw new MonitoringError({
                   message: `Failed to fetch trade metrics: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -179,35 +203,50 @@ export const monitoringRouter = router({
               },
             });
 
-            const successfulTrades = trades.filter(t => t.status === "SUCCESS");
-            const failedTrades = trades.filter(t => t.status === "FAILED");
+            const successfulTrades = trades.filter(
+              (t) => t.status === "SUCCESS"
+            );
+            const failedTrades = trades.filter((t) => t.status === "FAILED");
 
             // Calculate performance metrics
             const tradeMetrics = {
               total: trades.length,
               successful: successfulTrades.length,
               failed: failedTrades.length,
-              successRate: trades.length > 0 ? (successfulTrades.length / trades.length) * 100 : 0,
-              averageExecutionTime: trades.length > 0 
-                ? trades.reduce((sum, t) => sum + (t.executionTimeMs || 0), 0) / trades.length 
-                : 0,
-              fastestExecution: trades.length > 0 
-                ? Math.min(...trades.map(t => t.executionTimeMs || 0))
-                : 0,
-              slowestExecution: trades.length > 0 
-                ? Math.max(...trades.map(t => t.executionTimeMs || 0))
-                : 0,
+              successRate:
+                trades.length > 0
+                  ? (successfulTrades.length / trades.length) * 100
+                  : 0,
+              averageExecutionTime:
+                trades.length > 0
+                  ? trades.reduce(
+                      (sum, t) => sum + (t.executionTimeMs || 0),
+                      0
+                    ) / trades.length
+                  : 0,
+              fastestExecution:
+                trades.length > 0
+                  ? Math.min(...trades.map((t) => t.executionTimeMs || 0))
+                  : 0,
+              slowestExecution:
+                trades.length > 0
+                  ? Math.max(...trades.map((t) => t.executionTimeMs || 0))
+                  : 0,
             };
 
             // Get listing metrics
             const listings = yield* Effect.tryPromise({
-              try: () => db.select()
-                .from(listingEvent)
-                .where(and(
-                  gt(listingEvent.detectedAt, since),
-                  eq(listingEvent.eventType, "NEW_LISTING_DETECTED")
-                ))
-                .orderBy(desc(listingEvent.detectedAt)),
+              try: () =>
+                db
+                  .select()
+                  .from(listingEvent)
+                  .where(
+                    and(
+                      gt(listingEvent.detectedAt, since),
+                      eq(listingEvent.eventType, "NEW_LISTING_DETECTED")
+                    )
+                  )
+                  .orderBy(desc(listingEvent.detectedAt)),
               catch: (error) => {
                 throw new MonitoringError({
                   message: `Failed to fetch listing metrics: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -219,19 +258,25 @@ export const monitoringRouter = router({
 
             const listingMetrics = {
               total: listings.length,
-              averagePrice: listings.length > 0 
-                ? listings.reduce((sum, l) => sum + parseFloat(l.price || "0"), 0) / listings.length 
-                : 0,
+              averagePrice:
+                listings.length > 0
+                  ? listings.reduce(
+                      (sum, l) => sum + Number.parseFloat(l.price || "0"),
+                      0
+                    ) / listings.length
+                  : 0,
               mostRecent: listings.length > 0 ? listings[0].detectedAt : null,
-              oldest: listings.length > 0 ? listings[listings.length - 1].detectedAt : null,
+              oldest: listings.length > 0 ? listings.at(-1).detectedAt : null,
             };
 
             // Get bot status metrics
             const botStatuses = yield* Effect.tryPromise({
-              try: () => db.select()
-                .from(botStatus)
-                .where(gt(botStatus.lastHeartbeat, since))
-                .orderBy(desc(botStatus.lastHeartbeat)),
+              try: () =>
+                db
+                  .select()
+                  .from(botStatus)
+                  .where(gt(botStatus.lastHeartbeat, since))
+                  .orderBy(desc(botStatus.lastHeartbeat)),
               catch: (error) => {
                 throw new MonitoringError({
                   message: `Failed to fetch bot status metrics: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -242,13 +287,21 @@ export const monitoringRouter = router({
             });
 
             const botMetrics = {
-              uptimePercentage: botStatuses.length > 0 
-                ? (botStatuses.filter(status => status.isRunning).length / botStatuses.length) * 100 
-                : 0,
-              averageApiResponseTime: botStatuses.length > 0 
-                ? botStatuses.reduce((sum, status) => sum + status.apiResponseTime, 0) / botStatuses.length 
-                : 0,
-              lastHeartbeat: botStatuses.length > 0 ? botStatuses[0].lastHeartbeat : null,
+              uptimePercentage:
+                botStatuses.length > 0
+                  ? (botStatuses.filter((status) => status.isRunning).length /
+                      botStatuses.length) *
+                    100
+                  : 0,
+              averageApiResponseTime:
+                botStatuses.length > 0
+                  ? botStatuses.reduce(
+                      (sum, status) => sum + status.apiResponseTime,
+                      0
+                    ) / botStatuses.length
+                  : 0,
+              lastHeartbeat:
+                botStatuses.length > 0 ? botStatuses[0].lastHeartbeat : null,
             };
 
             const metrics = {
@@ -272,11 +325,14 @@ export const monitoringRouter = router({
               };
             }
 
-            yield* TradingLogger.logInfo("Performance metrics fetched successfully", {
-              timeRange: input.timeRange,
-              tradeCount: tradeMetrics.total,
-              listingCount: listingMetrics.total,
-            });
+            yield* TradingLogger.logInfo(
+              "Performance metrics fetched successfully",
+              {
+                timeRange: input.timeRange,
+                tradeCount: tradeMetrics.total,
+                listingCount: listingMetrics.total,
+              }
+            );
 
             return metrics;
           } catch (error) {
@@ -295,7 +351,7 @@ export const monitoringRouter = router({
     }),
 
   // Get system status
-  getSystemStatus: protectedProcedure
+  getSystemStatus: publicProcedure
     .input(systemStatusSchema)
     .query(async ({ input }) => {
       return Effect.runPromise(
@@ -304,11 +360,14 @@ export const monitoringRouter = router({
 
           const status: {
             overall: "operational" | "degraded" | "down";
-            components: Record<string, {
-              status: "operational" | "degraded" | "down";
-              message?: string;
-              lastChecked: string;
-            }>;
+            components: Record<
+              string,
+              {
+                status: "operational" | "degraded" | "down";
+                message?: string;
+                lastChecked: string;
+              }
+            >;
             timestamp: string;
           } = {
             overall: "operational",
@@ -322,13 +381,16 @@ export const monitoringRouter = router({
               const botStatus = yield* tradingOrchestrator.getBotStatus();
               status.components.bot = {
                 status: botStatus.isRunning ? "operational" : "down",
-                message: botStatus.isRunning ? "Bot is running" : "Bot is stopped",
+                message: botStatus.isRunning
+                  ? "Bot is running"
+                  : "Bot is stopped",
                 lastChecked: new Date().toISOString(),
               };
             } catch (error) {
               status.components.bot = {
                 status: "down",
-                message: error instanceof Error ? error.message : "Bot status unknown",
+                message:
+                  error instanceof Error ? error.message : "Bot status unknown",
                 lastChecked: new Date().toISOString(),
               };
             }
@@ -346,7 +408,10 @@ export const monitoringRouter = router({
             } catch (error) {
               status.components.mexcApi = {
                 status: "down",
-                message: error instanceof Error ? error.message : "API connectivity failed",
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : "API connectivity failed",
                 lastChecked: new Date().toISOString(),
               };
             }
@@ -373,16 +438,23 @@ export const monitoringRouter = router({
             } catch (error) {
               status.components.database = {
                 status: "down",
-                message: error instanceof Error ? error.message : "Database connectivity failed",
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : "Database connectivity failed",
                 lastChecked: new Date().toISOString(),
               };
             }
           }
 
           // Determine overall status
-          const downComponents = Object.values(status.components).filter(comp => comp.status === "down");
-          const degradedComponents = Object.values(status.components).filter(comp => comp.status === "degraded");
-          
+          const downComponents = Object.values(status.components).filter(
+            (comp) => comp.status === "down"
+          );
+          const degradedComponents = Object.values(status.components).filter(
+            (comp) => comp.status === "degraded"
+          );
+
           if (downComponents.length > 0) {
             status.overall = "down";
           } else if (degradedComponents.length > 0) {
@@ -400,7 +472,7 @@ export const monitoringRouter = router({
     }),
 
   // Get recent alerts (placeholder for future alert system)
-  getRecentAlerts: protectedProcedure
+  getRecentAlerts: publicProcedure
     .input(alertQuerySchema)
     .query(async ({ input }) => {
       return Effect.runPromise(
@@ -433,13 +505,17 @@ export const monitoringRouter = router({
 
           // Apply filters
           let filteredAlerts = alerts;
-          
+
           if (input.severity) {
-            filteredAlerts = filteredAlerts.filter(alert => alert.severity === input.severity);
+            filteredAlerts = filteredAlerts.filter(
+              (alert) => alert.severity === input.severity
+            );
           }
 
           if (input.status) {
-            filteredAlerts = filteredAlerts.filter(alert => alert.status === input.status);
+            filteredAlerts = filteredAlerts.filter(
+              (alert) => alert.status === input.status
+            );
           }
 
           // Apply pagination
@@ -471,12 +547,14 @@ export const monitoringRouter = router({
     }),
 
   // Get logs (placeholder for future logging system)
-  getRecentLogs: protectedProcedure
-    .input(z.object({
-      level: z.enum(["debug", "info", "warn", "error"]).optional(),
-      component: z.string().optional(),
-      limit: z.number().positive().max(100).default(50),
-    }))
+  getRecentLogs: publicProcedure
+    .input(
+      z.object({
+        level: z.enum(["debug", "info", "warn", "error"]).optional(),
+        component: z.string().optional(),
+        limit: z.number().positive().max(100).default(50),
+      })
+    )
     .query(async ({ input }) => {
       return Effect.runPromise(
         Effect.gen(function* () {
@@ -520,14 +598,18 @@ export const monitoringRouter = router({
 
           // Apply filters
           let filteredLogs = logs;
-          
+
           if (input.level) {
-            filteredLogs = filteredLogs.filter(log => log.level === input.level);
+            filteredLogs = filteredLogs.filter(
+              (log) => log.level === input.level
+            );
           }
 
           if (input.component) {
-            filteredLogs = filteredLogs.filter(log => 
-              log.component.toLowerCase().includes(input.component!.toLowerCase())
+            filteredLogs = filteredLogs.filter((log) =>
+              log.component
+                .toLowerCase()
+                .includes(input.component?.toLowerCase())
             );
           }
 

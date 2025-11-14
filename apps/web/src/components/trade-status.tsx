@@ -1,24 +1,43 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Activity,
+  ArrowDownRight,
+  ArrowUpRight,
+  BarChart3,
+  Clock,
+  DollarSign,
+  Play,
+  TrendingUp,
+  Zap,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { 
-  TrendingUp, 
-  Clock, 
-  Zap, 
-  Play,
-  BarChart3,
-  ArrowUpRight,
-  ArrowDownRight,
-  Activity,
-  DollarSign
-} from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Mock data - will be replaced with real API calls
 const mockTradeHistory = [
@@ -32,7 +51,7 @@ const mockTradeHistory = [
     executedQuantity: "0.001",
     createdAt: new Date(Date.now() - 2 * 60 * 1000),
     executionTime: 234,
-    value: 43.25
+    value: 43.25,
   },
   {
     id: "trade_002",
@@ -44,7 +63,7 @@ const mockTradeHistory = [
     executedQuantity: "0.01",
     createdAt: new Date(Date.now() - 5 * 60 * 1000),
     executionTime: 187,
-    value: 22.41
+    value: 22.41,
   },
   {
     id: "trade_003",
@@ -55,7 +74,7 @@ const mockTradeHistory = [
     error: "Insufficient balance",
     createdAt: new Date(Date.now() - 8 * 60 * 1000),
     executionTime: 456,
-    value: 0
+    value: 0,
   },
   {
     id: "trade_004",
@@ -67,7 +86,7 @@ const mockTradeHistory = [
     executedQuantity: "1",
     createdAt: new Date(Date.now() - 12 * 60 * 1000),
     executionTime: 298,
-    value: 7.85
+    value: 7.85,
   },
 ];
 
@@ -89,12 +108,6 @@ export function TradeStatus() {
   const [strategy, setStrategy] = useState<"MARKET" | "LIMIT">("MARKET");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  useEffect(() => {
-    fetchTradeData();
-    const interval = setInterval(fetchTradeData, 5000);
-    return () => clearInterval(interval);
-  }, [fetchTradeData]);
-
   const fetchTradeData = useCallback(async () => {
     await Promise.resolve(); // Add await expression
     try {
@@ -107,11 +120,17 @@ export function TradeStatus() {
       // const statsData = await statsResponse.json();
       // setTrades(tradesData.trades);
       // setStats(statsData);
-      console.log('Trade data fetched (mock data currently)');
+      console.log("Trade data fetched (mock data currently)");
     } catch (error) {
-      console.error('Failed to fetch trade data:', error);
+      console.error("Failed to fetch trade data:", error);
     }
   }, []);
+
+  useEffect(() => {
+    fetchTradeData();
+    const interval = setInterval(fetchTradeData, 5000);
+    return () => clearInterval(interval);
+  }, [fetchTradeData]);
 
   const handleManualTrade = async () => {
     if (!symbol) {
@@ -127,12 +146,12 @@ export function TradeStatus() {
       //   body: JSON.stringify({ symbol, strategy })
       // });
       // await response.json();
-      
+
       setIsDialogOpen(false);
       setSymbol("");
       await fetchTradeData();
     } catch (error) {
-      console.error('Failed to execute manual trade:', error);
+      console.error("Failed to execute manual trade:", error);
     } finally {
       setIsLoading(false);
     }
@@ -167,15 +186,15 @@ export function TradeStatus() {
   return (
     <div className="space-y-6">
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Trades</CardTitle>
+            <CardTitle className="font-medium text-sm">Total Trades</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalTrades}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className="font-bold text-2xl">{stats.totalTrades}</div>
+            <p className="text-muted-foreground text-xs">
               {stats.successfulTrades} successful, {stats.failedTrades} failed
             </p>
           </CardContent>
@@ -183,38 +202,38 @@ export function TradeStatus() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+            <CardTitle className="font-medium text-sm">Success Rate</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.successRate}%</div>
-            <p className="text-xs text-muted-foreground">
-              Target: &gt;90%
-            </p>
+            <div className="font-bold text-2xl">{stats.successRate}%</div>
+            <p className="text-muted-foreground text-xs">Target: &gt;90%</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Execution</CardTitle>
+            <CardTitle className="font-medium text-sm">Avg Execution</CardTitle>
             <Zap className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.averageExecutionTime}ms</div>
-            <p className="text-xs text-muted-foreground">
-              Target: &lt;500ms
-            </p>
+            <div className="font-bold text-2xl">
+              {stats.averageExecutionTime}ms
+            </div>
+            <p className="text-muted-foreground text-xs">Target: &lt;500ms</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Value</CardTitle>
+            <CardTitle className="font-medium text-sm">Total Value</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.totalValue.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className="font-bold text-2xl">
+              ${stats.totalValue.toLocaleString()}
+            </div>
+            <p className="text-muted-foreground text-xs">
               Avg: ${stats.averageTradeValue}
             </p>
           </CardContent>
@@ -238,14 +257,19 @@ export function TradeStatus() {
               <Label htmlFor="symbol">Symbol</Label>
               <Input
                 id="symbol"
+                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
                 placeholder="e.g., BTCUSDT"
                 value={symbol}
-                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
               />
             </div>
             <div className="w-32">
               <Label htmlFor="strategy">Strategy</Label>
-              <Select value={strategy} onValueChange={(value: "MARKET" | "LIMIT") => setStrategy(value)}>
+              <Select
+                onValueChange={(value: "MARKET" | "LIMIT") =>
+                  setStrategy(value)
+                }
+                value={strategy}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -255,10 +279,10 @@ export function TradeStatus() {
                 </SelectContent>
               </Select>
             </div>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <Dialog onOpenChange={setIsDialogOpen} open={isDialogOpen}>
               <DialogTrigger asChild>
-                <Button 
-                  className="mt-6" 
+                <Button
+                  className="mt-6"
                   disabled={!symbol || isLoading}
                   onClick={() => setIsDialogOpen(true)}
                 >
@@ -269,14 +293,18 @@ export function TradeStatus() {
                 <DialogHeader>
                   <DialogTitle>Confirm Manual Trade</DialogTitle>
                   <DialogDescription>
-                    Are you sure you want to execute a {strategy.toLowerCase()} trade for {symbol}?
+                    Are you sure you want to execute a {strategy.toLowerCase()}{" "}
+                    trade for {symbol}?
                   </DialogDescription>
                 </DialogHeader>
-                <div className="flex justify-end gap-2 mt-4">
-                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <div className="mt-4 flex justify-end gap-2">
+                  <Button
+                    onClick={() => setIsDialogOpen(false)}
+                    variant="outline"
+                  >
                     Cancel
                   </Button>
-                  <Button onClick={handleManualTrade} disabled={isLoading}>
+                  <Button disabled={isLoading} onClick={handleManualTrade}>
                     {isLoading ? "Executing..." : "Confirm Trade"}
                   </Button>
                 </div>
@@ -303,7 +331,10 @@ export function TradeStatus() {
         <CardContent>
           <div className="space-y-4">
             {trades.map((trade) => (
-              <div key={trade.id} className="flex items-center justify-between p-4 border rounded-lg">
+              <div
+                className="flex items-center justify-between rounded-lg border p-4"
+                key={trade.id}
+              >
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     {trade.status === "SUCCESS" ? (
@@ -313,7 +344,7 @@ export function TradeStatus() {
                     )}
                     <div>
                       <div className="font-medium">{trade.symbol}</div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-muted-foreground text-sm">
                         {trade.strategy} • {trade.quantity}
                       </div>
                     </div>
@@ -325,14 +356,14 @@ export function TradeStatus() {
 
                 <div className="text-right">
                   <div className="font-medium">
-                    {trade.status === "SUCCESS" ? `$${trade.value.toFixed(2)}` : "Failed"}
+                    {trade.status === "SUCCESS"
+                      ? `$${trade.value.toFixed(2)}`
+                      : "Failed"}
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    {trade.status === "SUCCESS" && (
-                      <>@{trade.executedPrice}</>
-                    )}
+                  <div className="text-muted-foreground text-sm">
+                    {trade.status === "SUCCESS" && <>@{trade.executedPrice}</>}
                   </div>
-                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <div className="flex items-center gap-1 text-muted-foreground text-xs">
                     <Clock className="h-3 w-3" />
                     {formatTimeAgo(trade.createdAt)} • {trade.executionTime}ms
                   </div>
@@ -341,8 +372,8 @@ export function TradeStatus() {
             ))}
 
             {trades.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <div className="py-8 text-center text-muted-foreground">
+                <Activity className="mx-auto mb-2 h-8 w-8 opacity-50" />
                 <p>No trades executed yet</p>
               </div>
             )}
@@ -359,11 +390,13 @@ export function TradeStatus() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-64 flex items-center justify-center border-2 border-dashed border-muted rounded-lg">
+          <div className="flex h-64 items-center justify-center rounded-lg border-2 border-muted border-dashed">
             <div className="text-center text-muted-foreground">
-              <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <BarChart3 className="mx-auto mb-2 h-8 w-8 opacity-50" />
               <p>Performance chart will be implemented here</p>
-              <p className="text-sm">Showing execution times and success rates</p>
+              <p className="text-sm">
+                Showing execution times and success rates
+              </p>
             </div>
           </div>
         </CardContent>

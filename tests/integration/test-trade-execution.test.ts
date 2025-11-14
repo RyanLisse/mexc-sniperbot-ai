@@ -1,15 +1,15 @@
-import { describe, expect, test, beforeAll, afterAll } from "bun:test";
-import { db } from "../../packages/db/src/index";
-import { tradeAttempt } from "../../packages/db/src/schema/trade-attempts";
-import { listingEvent } from "../../packages/db/src/schema/listing-events";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
+import { db } from "../../packages/db/src/index";
+import { listingEvent } from "../../packages/db/src/schema/listing-events";
+import { tradeAttempt } from "../../packages/db/src/schema/trade-attempts";
 
 /**
  * Integration Tests for Trade Execution Flow
- * 
+ *
  * Purpose: Validate end-to-end trade execution and database persistence
  * Requirements: <500ms execution time, proper state management
- * 
+ *
  * Flow tested:
  * 1. Listing event triggers trade attempt
  * 2. Trade order is placed via MEXC API
@@ -24,7 +24,7 @@ describe("Trade Execution Integration Tests", () => {
   beforeAll(async () => {
     // Create a test listing event
     testListingId = `test-listing-${Date.now()}`;
-    
+
     await db.insert(listingEvent).values({
       id: testListingId,
       symbol: "TRADEUSDT",
@@ -38,20 +38,14 @@ describe("Trade Execution Integration Tests", () => {
     });
 
     // Clean up any existing test trades
-    await db
-      .delete(tradeAttempt)
-      .where(eq(tradeAttempt.symbol, "TRADEUSDT"));
+    await db.delete(tradeAttempt).where(eq(tradeAttempt.symbol, "TRADEUSDT"));
   });
 
   afterAll(async () => {
     // Clean up test data
-    await db
-      .delete(tradeAttempt)
-      .where(eq(tradeAttempt.symbol, "TRADEUSDT"));
-    
-    await db
-      .delete(listingEvent)
-      .where(eq(listingEvent.id, testListingId));
+    await db.delete(tradeAttempt).where(eq(tradeAttempt.symbol, "TRADEUSDT"));
+
+    await db.delete(listingEvent).where(eq(listingEvent.id, testListingId));
   });
 
   describe("Trade Attempt Creation", () => {
@@ -147,7 +141,7 @@ describe("Trade Execution Integration Tests", () => {
         .limit(1);
 
       const commission = Number.parseFloat(trade[0].commission || "0");
-      
+
       expect(commission).toBe(0.123);
       expect(commission).toBeGreaterThan(0);
     });
@@ -358,7 +352,7 @@ describe("Trade Execution Integration Tests", () => {
       const totalVolume = trades.reduce((sum, trade) => {
         const qty = Number.parseFloat(trade.executedQuantity || "0");
         const price = Number.parseFloat(trade.executedPrice || "0");
-        return sum + (qty * price);
+        return sum + qty * price;
       }, 0);
 
       expect(totalVolume).toBe(487.5); // 100 + 300 + 187.5
@@ -423,7 +417,7 @@ describe("Trade Execution Integration Tests", () => {
 
 /**
  * Test Summary:
- * 
+ *
  * ✅ Trade attempt creation and linking
  * ✅ Trade execution status updates
  * ✅ Trade value and commission calculation
@@ -433,7 +427,7 @@ describe("Trade Execution Integration Tests", () => {
  * ✅ Query performance (<50ms requirement)
  * ✅ Trade statistics calculation
  * ✅ Configuration snapshot preservation
- * 
+ *
  * These integration tests ensure:
  * - End-to-end trade execution workflow
  * - Proper state management

@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeAll } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import { MEXCSigningService } from "../../packages/api/src/services/mexc-signing";
 
@@ -11,10 +11,10 @@ const ORDER_STATUS_REGEX = /^(NEW|FILLED|PARTIALLY_FILLED|CANCELED)$/;
 
 /**
  * Contract Tests for MEXC API Integration
- * 
+ *
  * Purpose: Verify that our API client correctly integrates with MEXC API
  * Requirements: Validate request/response contracts, error handling, and signing
- * 
+ *
  * Note: These tests use mock responses to avoid real API calls
  */
 
@@ -22,8 +22,10 @@ describe("MEXC API Contract Tests", () => {
   let signingService: MEXCSigningService;
 
   beforeAll(() => {
-    // Initialize services with test credentials
-    signingService = new MEXCSigningService("test_secret_key");
+    // Initialize services with test credentials (32+ char hex string)
+    signingService = new MEXCSigningService(
+      "a".repeat(64) // Valid 64-character hex string for testing
+    );
   });
 
   describe("Request Signing", () => {
@@ -33,9 +35,7 @@ describe("MEXC API Contract Tests", () => {
         timestamp: Date.now(),
       };
 
-      const result = Effect.runSync(
-        signingService.signRequest(params)
-      );
+      const result = Effect.runSync(signingService.signRequest(params));
 
       expect(result.signature).toBeDefined();
       expect(result.signature).toBeTypeOf("string");
@@ -47,9 +47,7 @@ describe("MEXC API Contract Tests", () => {
     test("should validate signature format", () => {
       const params = { symbol: "ETHUSDT" };
 
-      const result = Effect.runSync(
-        signingService.signRequest(params)
-      );
+      const result = Effect.runSync(signingService.signRequest(params));
 
       // Signature should be valid hex string
       expect(HEX_SIGNATURE_REGEX.test(result.signature)).toBe(true);
@@ -58,12 +56,12 @@ describe("MEXC API Contract Tests", () => {
     test("should handle empty parameters", () => {
       const params = {};
 
-      const result = Effect.runSync(
-        signingService.signRequest(params)
-      );
+      const result = Effect.runSync(signingService.signRequest(params));
 
       expect(result.signature).toBeDefined();
-      expect(result.queryString).toBe("");
+      // Query string should contain timestamp and recvWindow even with empty params
+      expect(result.queryString).toContain("timestamp=");
+      expect(result.queryString).toContain("recvWindow=5000");
     });
 
     test("should sort parameters alphabetically", () => {
@@ -73,9 +71,7 @@ describe("MEXC API Contract Tests", () => {
         middle: "middle",
       };
 
-      const result = Effect.runSync(
-        signingService.signRequest(params)
-      );
+      const result = Effect.runSync(signingService.signRequest(params));
 
       expect(result.queryString).toBe("alpha=first&middle=middle&zebra=last");
     });
@@ -115,7 +111,9 @@ describe("MEXC API Contract Tests", () => {
       expect(mockTickerResponse).toHaveProperty("symbol");
       expect(mockTickerResponse).toHaveProperty("lastPrice");
       expect(mockTickerResponse).toHaveProperty("volume");
-      expect(Number.parseFloat(mockTickerResponse.lastPrice)).toBeGreaterThan(0);
+      expect(Number.parseFloat(mockTickerResponse.lastPrice)).toBeGreaterThan(
+        0
+      );
     });
 
     test("should validate order response structure", () => {
@@ -231,7 +229,7 @@ describe("MEXC API Contract Tests", () => {
 
     test("should validate timestamp format", () => {
       const timestamp = Date.now();
-      
+
       expect(typeof timestamp).toBe("number");
       expect(timestamp).toBeGreaterThan(1_600_000_000_000); // After 2020
       expect(timestamp).toBeLessThan(2_000_000_000_000); // Before 2033
@@ -239,7 +237,7 @@ describe("MEXC API Contract Tests", () => {
 
     test("should validate quantity format", () => {
       const validQuantities = ["0.001", "1.5", "100"];
-      
+
       for (const qty of validQuantities) {
         const parsed = Number.parseFloat(qty);
         expect(parsed).toBeGreaterThan(0);
@@ -291,20 +289,20 @@ describe("MEXC API Contract Tests", () => {
   });
 
   describe("API Endpoint Contracts", () => {
-      test("should construct correct endpoint URLs", () => {
-        const baseUrl = "https://api.mexc.com";
-        const endpoints = {
-          exchangeInfo: "/api/v3/exchangeInfo",
-          ticker24hr: "/api/v3/ticker/24hr",
-          order: "/api/v3/order",
-          account: "/api/v3/account",
-        };
+    test("should construct correct endpoint URLs", () => {
+      const baseUrl = "https://api.mexc.com";
+      const endpoints = {
+        exchangeInfo: "/api/v3/exchangeInfo",
+        ticker24hr: "/api/v3/ticker/24hr",
+        order: "/api/v3/order",
+        account: "/api/v3/account",
+      };
 
-        for (const path of Object.values(endpoints)) {
-          const fullUrl = `${baseUrl}${path}`;
-          expect(fullUrl).toContain("https://api.mexc.com/api/v3/");
-        }
-      });
+      for (const path of Object.values(endpoints)) {
+        const fullUrl = `${baseUrl}${path}`;
+        expect(fullUrl).toContain("https://api.mexc.com/api/v3/");
+      }
+    });
 
     test("should include required headers", () => {
       const requiredHeaders = {
@@ -325,7 +323,7 @@ describe("MEXC API Contract Tests", () => {
 
       // Simulate failures
       for (let i = 0; i < 3; i++) {
-        failureCount = failureCount + 1;
+        failureCount += 1;
       }
 
       expect(failureCount).toBeLessThan(failureThreshold);
@@ -344,7 +342,7 @@ describe("MEXC API Contract Tests", () => {
       const recoveryTimeout = 60_000; // 60 seconds
       const lastFailureTime = Date.now() - 70_000; // 70 seconds ago
       const currentTime = Date.now();
-      const canRetry = (currentTime - lastFailureTime) >= recoveryTimeout;
+      const canRetry = currentTime - lastFailureTime >= recoveryTimeout;
 
       expect(canRetry).toBe(true);
     });
@@ -353,7 +351,7 @@ describe("MEXC API Contract Tests", () => {
 
 /**
  * Test Summary:
- * 
+ *
  * ✅ Request signing validation
  * ✅ API response structure contracts
  * ✅ Error response contracts
@@ -361,7 +359,7 @@ describe("MEXC API Contract Tests", () => {
  * ✅ Response data type validation
  * ✅ API endpoint URL construction
  * ✅ Circuit breaker behavior
- * 
+ *
  * These contract tests ensure:
  * - Proper HMAC SHA256 signature generation
  * - Correct API request/response structure

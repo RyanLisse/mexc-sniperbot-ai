@@ -1,0 +1,323 @@
+"use client";
+
+import { Loader2, Plus, X } from "lucide-react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  type CreateConfigurationRequest,
+  useCreateConfiguration,
+} from "@/hooks/use-configurations";
+
+const SYMBOL_PATTERN = /^[A-Z0-9]+USDT$/;
+
+const configurationSchema = z.object({
+  name: z.string().min(1, "Name is required").max(100, "Name too long"),
+  quoteAmount: z.number().positive("Must be positive").max(100_000),
+  maxTradesPerHour: z.number().int().positive().max(100),
+  maxDailySpend: z.number().positive().max(1_000_000),
+  recvWindow: z.number().int().positive().max(1000),
+  safetyEnabled: z.boolean(),
+});
+
+type ConfigurationFormData = z.infer<typeof configurationSchema>;
+
+type ConfigurationFormProps = {
+  onSuccess?: () => void;
+  onCancel?: () => void;
+};
+
+/**
+ * Configuration form component using TanStack Form and shadcn/ui
+ * Validates input and creates new bot configurations
+ *
+ * @example
+ * ```tsx
+ * <ConfigurationForm onSuccess={() => router.push('/dashboard')} />
+ * ```
+ */
+export function ConfigurationForm({
+  onSuccess,
+  onCancel,
+}: ConfigurationFormProps) {
+  const createConfig = useCreateConfiguration();
+  const [symbolInput, setSymbolInput] = useState("");
+  const [symbols, setSymbols] = useState<string[]>([]);
+
+  const form = useForm({
+    defaultValues: {
+      name: "",
+      symbols: [],
+      quoteAmount: 100,
+      maxTradesPerHour: 10,
+      maxDailySpend: 1000,
+      recvWindow: 1000,
+      safetyEnabled: true,
+    } as CreateConfigurationRequest,
+    validatorAdapter: zodValidator(),
+    onSubmit: ({ value }) => {
+      const data = { ...value, symbols };
+      createConfig.mutate(data, {
+        onSuccess: () => {
+          form.reset();
+          setSymbols([]);
+          onSuccess?.();
+        },
+      });
+    },
+  });
+
+  const addSymbol = () => {
+    const symbol = symbolInput.trim().toUpperCase();
+    if (!symbol) return;
+
+    if (!SYMBOL_PATTERN.test(symbol)) return;
+
+    if (!symbols.includes(symbol)) {
+      setSymbols([...symbols, symbol]);
+      setSymbolInput("");
+    }
+  };
+
+  const removeSymbol = (symbol: string) => {
+    setSymbols(symbols.filter((s) => s !== symbol));
+  };
+
+  const handleSymbolKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addSymbol();
+    }
+  };
+
+  return (
+    <Form {...form}>
+      <form className="space-y-6" onSubmit={form.handleSubmit}>
+        <CardContent className="space-y-6">
+          {/* Name */}
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Configuration Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., Aggressive Sniper" {...field} />
+                </FormControl>
+                <FormDescription>
+                  A descriptive name for this configuration
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Symbols */}
+          <div className="space-y-2">
+            <Label htmlFor="symbol">Trading Symbols</Label>
+            <div className="flex gap-2">
+              <Input
+                id="symbol"
+                onChange={(e) => setSymbolInput(e.target.value)}
+                onKeyDown={handleSymbolKeyPress}
+                placeholder="e.g., BTCUSDT"
+                value={symbolInput}
+              />
+              <Button onClick={addSymbol} size="icon" type="button">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {symbols.map((symbol) => (
+                <Badge key={symbol} variant="secondary">
+                  {symbol}
+                  <button
+                    className="ml-2 hover:text-red-600"
+                    onClick={() => removeSymbol(symbol)}
+                    type="button"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+            {symbols.length === 0 && (
+              <p className="text-gray-500 text-sm">
+                Add at least one USDT trading pair
+              </p>
+            )}
+          </div>
+
+          {/* Quote Amount */}
+          <form.Field
+            name="quoteAmount"
+            validators={{
+              onChange: configurationSchema.shape.quoteAmount,
+            }}
+          >
+            {(field) => (
+              <div className="space-y-2">
+                <Label htmlFor="quoteAmount">Quote Amount (USDT)</Label>
+                <Input
+                  id="quoteAmount"
+                  max={100_000}
+                  min={1}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(Number(e.target.value))}
+                  type="number"
+                  value={field.state.value}
+                />
+                <p className="text-gray-500 text-sm">
+                  Amount of USDT to spend per trade
+                </p>
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-red-600 text-sm">
+                    {field.state.meta.errors[0]}
+                  </p>
+                )}
+              </div>
+            )}
+          </form.Field>
+
+          {/* Max Trades Per Hour */}
+          <form.Field
+            name="maxTradesPerHour"
+            validators={{
+              onChange: configurationSchema.shape.maxTradesPerHour,
+            }}
+          >
+            {(field) => (
+              <div className="space-y-2">
+                <Label htmlFor="maxTradesPerHour">Max Trades Per Hour</Label>
+                <Input
+                  id="maxTradesPerHour"
+                  max={100}
+                  min={1}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(Number(e.target.value))}
+                  type="number"
+                  value={field.state.value}
+                />
+                <p className="text-gray-500 text-sm">
+                  Rate limit for trade execution
+                </p>
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-red-600 text-sm">
+                    {field.state.meta.errors[0]}
+                  </p>
+                )}
+              </div>
+            )}
+          </form.Field>
+
+          {/* Max Daily Spend */}
+          <form.Field
+            name="maxDailySpend"
+            validators={{
+              onChange: configurationSchema.shape.maxDailySpend,
+            }}
+          >
+            {(field) => (
+              <div className="space-y-2">
+                <Label htmlFor="maxDailySpend">Max Daily Spend (USDT)</Label>
+                <Input
+                  id="maxDailySpend"
+                  max={1_000_000}
+                  min={1}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(Number(e.target.value))}
+                  type="number"
+                  value={field.state.value}
+                />
+                <p className="text-gray-500 text-sm">
+                  Total spending cap per day
+                </p>
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-red-600 text-sm">
+                    {field.state.meta.errors[0]}
+                  </p>
+                )}
+              </div>
+            )}
+          </form.Field>
+
+          {/* Recv Window */}
+          <form.Field
+            name="recvWindow"
+            validators={{
+              onChange: configurationSchema.shape.recvWindow,
+            }}
+          >
+            {(field) => (
+              <div className="space-y-2">
+                <Label htmlFor="recvWindow">Recv Window (ms)</Label>
+                <Input
+                  id="recvWindow"
+                  max={1000}
+                  min={100}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(Number(e.target.value))}
+                  type="number"
+                  value={field.state.value}
+                />
+                <p className="text-gray-500 text-sm">
+                  MEXC request validity window (max 1000ms)
+                </p>
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-red-600 text-sm">
+                    {field.state.meta.errors[0]}
+                  </p>
+                )}
+              </div>
+            )}
+          </form.Field>
+
+          {/* Safety Enabled */}
+          <form.Field name="safetyEnabled">
+            {(field) => (
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="safetyEnabled">Safety Constraints</Label>
+                  <p className="text-gray-500 text-sm">
+                    Enforce spending and rate limits
+                  </p>
+                </div>
+                <Switch
+                  checked={field.state.value}
+                  id="safetyEnabled"
+                  onCheckedChange={field.handleChange}
+                />
+              </div>
+            )}
+          </form.Field>
+        </CardContent>
+
+        <CardFooter className="flex justify-between">
+          {onCancel && (
+            <Button onClick={onCancel} type="button" variant="outline">
+              Cancel
+            </Button>
+          )}
+          <Button
+            className="ml-auto"
+            disabled={createConfig.isPending || symbols.length === 0}
+            type="submit"
+          >
+            {createConfig.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              "Create Configuration"
+            )}
+          </Button>
+        </CardFooter>
+      </form>
+    </Card>
+  );
+}

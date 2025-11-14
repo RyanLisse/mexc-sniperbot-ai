@@ -1,14 +1,14 @@
-import { describe, expect, test, beforeAll, afterAll } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { eq, like, lt } from "drizzle-orm";
 import { db } from "../../packages/db/src/index";
 import { listingEvent } from "../../packages/db/src/schema/listing-events";
-import { eq, lt, like } from "drizzle-orm";
 
 /**
  * Integration Tests for Listing Detection Flow
- * 
+ *
  * Purpose: Validate end-to-end listing detection and database persistence
  * Requirements: <100ms detection time, proper database storage
- * 
+ *
  * Flow tested:
  * 1. New listing appears on MEXC
  * 2. Listing detector identifies new symbol
@@ -21,16 +21,12 @@ describe("Listing Detection Integration Tests", () => {
 
   beforeAll(async () => {
     // Clean up any existing test data
-    await db
-      .delete(listingEvent)
-      .where(eq(listingEvent.symbol, "TESTUSDT"));
+    await db.delete(listingEvent).where(eq(listingEvent.symbol, "TESTUSDT"));
   });
 
   afterAll(async () => {
     // Clean up test data
-    await db
-      .delete(listingEvent)
-      .where(eq(listingEvent.symbol, "TESTUSDT"));
+    await db.delete(listingEvent).where(eq(listingEvent.symbol, "TESTUSDT"));
   });
 
   describe("Listing Detection", () => {
@@ -71,7 +67,7 @@ describe("Listing Detection Integration Tests", () => {
         .limit(10);
 
       expect(Array.isArray(unprocessedListings)).toBe(true);
-      
+
       if (unprocessedListings.length > 0) {
         expect(unprocessedListings[0].processed).toBe(false);
         expect(unprocessedListings[0].symbol).toBeDefined();
@@ -142,7 +138,7 @@ describe("Listing Detection Integration Tests", () => {
       const startTime = performance.now();
 
       const newListing = {
-        id: "perf-test-" + Date.now(),
+        id: `perf-test-${Date.now()}`,
         symbol: "PERFUSDT",
         exchangeName: "MEXC",
         listingTime: new Date(),
@@ -238,13 +234,15 @@ describe("Listing Detection Integration Tests", () => {
       expect(found).toBeDefined();
 
       // Cleanup
-      await db.delete(listingEvent).where(eq(listingEvent.symbol, "EXPIREDUSDT"));
+      await db
+        .delete(listingEvent)
+        .where(eq(listingEvent.symbol, "EXPIREDUSDT"));
     });
 
     test("should cleanup expired listings", async () => {
       // Delete expired listings (older than 48 hours)
       const cutoffTime = new Date(Date.now() - 48 * 60 * 60 * 1000);
-      
+
       await db
         .delete(listingEvent)
         .where(lt(listingEvent.expiresAt, cutoffTime));
@@ -338,10 +336,9 @@ describe("Listing Detection Integration Tests", () => {
   });
 });
 
-
 /**
  * Test Summary:
- * 
+ *
  * ✅ Listing detection and database persistence
  * ✅ Detection performance (<100ms requirement)
  * ✅ Database operation performance (<50ms requirement)
@@ -349,7 +346,7 @@ describe("Listing Detection Integration Tests", () => {
  * ✅ Listing expiration handling
  * ✅ Concurrent listing processing
  * ✅ Error handling for duplicates
- * 
+ *
  * These integration tests ensure:
  * - End-to-end listing detection workflow
  * - Performance requirements are met

@@ -18,6 +18,17 @@ export const listingEvent = pgTable("listing_events", {
   quoteAsset: text("quote_asset").notNull(),
   status: text("status").notNull().default("DETECTED"),
 
+  // Calendar-specific fields (optional for backward compatibility)
+  vcoinId: text("vcoin_id"), // MEXC calendar vcoinId for tracking across symbol changes
+  projectName: text("project_name"), // Full project name from calendar (vcoinNameFull)
+  detectionMethod: text("detection_method").default("SYMBOL_COMPARISON"), // "CALENDAR" | "SYMBOL_COMPARISON"
+
+  // Encore-specific: Signal confidence scoring
+  confidence: text("confidence").default("high"), // "high" | "medium" | "low"
+
+  // Encore-specific: Freshness deadline for order execution
+  freshnessDeadline: timestamp("freshness_deadline"), // After this, signal is stale
+
   // Market Data
   initialPrice: decimal("initial_price", { precision: 18, scale: 8 }),
   currentPrice: decimal("current_price", { precision: 18, scale: 8 }),

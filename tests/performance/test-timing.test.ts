@@ -1,19 +1,19 @@
 import { describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
 import { db } from "../../packages/db/src/index";
 import { listingEvent } from "../../packages/db/src/schema/listing-events";
 import { tradeAttempt } from "../../packages/db/src/schema/trade-attempts";
-import { eq } from "drizzle-orm";
 
 /**
  * Performance Tests for Sub-Second Requirements
- * 
+ *
  * Purpose: Validate that the system meets critical performance requirements
  * Requirements:
  * - Listing detection: <100ms
  * - Trade execution: <500ms (total end-to-end)
  * - Database queries: <50ms
  * - Memory usage: <512MB
- * 
+ *
  * These tests ensure the bot can react quickly enough to profit from new listings
  */
 
@@ -40,7 +40,9 @@ describe("Performance Requirements Tests", () => {
       const averageTime = timings.reduce((a, b) => a + b, 0) / timings.length;
       const maxTime = Math.max(...timings);
 
-      console.log(`Listing Detection - Average: ${averageTime.toFixed(2)}ms, Max: ${maxTime.toFixed(2)}ms`);
+      console.log(
+        `Listing Detection - Average: ${averageTime.toFixed(2)}ms, Max: ${maxTime.toFixed(2)}ms`
+      );
 
       expect(averageTime).toBeLessThan(100);
       expect(maxTime).toBeLessThan(150); // Allow some variance
@@ -76,7 +78,9 @@ describe("Performance Requirements Tests", () => {
       const averageTime = timings.reduce((a, b) => a + b, 0) / timings.length;
       const maxTime = Math.max(...timings);
 
-      console.log(`Listing Insert - Average: ${averageTime.toFixed(2)}ms, Max: ${maxTime.toFixed(2)}ms`);
+      console.log(
+        `Listing Insert - Average: ${averageTime.toFixed(2)}ms, Max: ${maxTime.toFixed(2)}ms`
+      );
 
       expect(averageTime).toBeLessThan(50);
       expect(maxTime).toBeLessThan(100);
@@ -144,7 +148,9 @@ describe("Performance Requirements Tests", () => {
       const averageTime = timings.reduce((a, b) => a + b, 0) / timings.length;
       const maxTime = Math.max(...timings);
 
-      console.log(`Trade Workflow - Average: ${averageTime.toFixed(2)}ms, Max: ${maxTime.toFixed(2)}ms`);
+      console.log(
+        `Trade Workflow - Average: ${averageTime.toFixed(2)}ms, Max: ${maxTime.toFixed(2)}ms`
+      );
 
       // Note: This is DB operations only. Full API call would add network time
       expect(averageTime).toBeLessThan(200); // DB portion should be very fast
@@ -171,7 +177,9 @@ describe("Performance Requirements Tests", () => {
       const averageTime = timings.reduce((a, b) => a + b, 0) / timings.length;
       const maxTime = Math.max(...timings);
 
-      console.log(`Trade Query - Average: ${averageTime.toFixed(2)}ms, Max: ${maxTime.toFixed(2)}ms`);
+      console.log(
+        `Trade Query - Average: ${averageTime.toFixed(2)}ms, Max: ${maxTime.toFixed(2)}ms`
+      );
 
       expect(averageTime).toBeLessThan(50);
       expect(maxTime).toBeLessThan(100);
@@ -193,10 +201,14 @@ describe("Performance Requirements Tests", () => {
       }
 
       const averageTime = timings.reduce((a, b) => a + b, 0) / timings.length;
-      const p95Time = timings.sort((a, b) => a - b)[Math.floor(timings.length * 0.95)];
+      const p95Time = timings.sort((a, b) => a - b)[
+        Math.floor(timings.length * 0.95)
+      ];
       const maxTime = Math.max(...timings);
 
-      console.log(`SELECT Query - Average: ${averageTime.toFixed(2)}ms, P95: ${p95Time.toFixed(2)}ms, Max: ${maxTime.toFixed(2)}ms`);
+      console.log(
+        `SELECT Query - Average: ${averageTime.toFixed(2)}ms, P95: ${p95Time.toFixed(2)}ms, Max: ${maxTime.toFixed(2)}ms`
+      );
 
       expect(averageTime).toBeLessThan(50);
       expect(p95Time).toBeLessThan(75);
@@ -235,7 +247,9 @@ describe("Performance Requirements Tests", () => {
       const averageTime = timings.reduce((a, b) => a + b, 0) / timings.length;
       const maxTime = Math.max(...timings);
 
-      console.log(`UPDATE Query - Average: ${averageTime.toFixed(2)}ms, Max: ${maxTime.toFixed(2)}ms`);
+      console.log(
+        `UPDATE Query - Average: ${averageTime.toFixed(2)}ms, Max: ${maxTime.toFixed(2)}ms`
+      );
 
       expect(averageTime).toBeLessThan(50);
       expect(maxTime).toBeLessThan(100);
@@ -274,7 +288,9 @@ describe("Performance Requirements Tests", () => {
       const averageTime = timings.reduce((a, b) => a + b, 0) / timings.length;
       const maxTime = Math.max(...timings);
 
-      console.log(`INSERT Query - Average: ${averageTime.toFixed(2)}ms, Max: ${maxTime.toFixed(2)}ms`);
+      console.log(
+        `INSERT Query - Average: ${averageTime.toFixed(2)}ms, Max: ${maxTime.toFixed(2)}ms`
+      );
 
       expect(averageTime).toBeLessThan(50);
       expect(maxTime).toBeLessThan(100);
@@ -292,7 +308,7 @@ describe("Performance Requirements Tests", () => {
       const startTime = performance.now();
 
       // Execute multiple operations concurrently
-      const promises = Array.from({ length: concurrentOps }, (_, i) => 
+      const promises = Array.from({ length: concurrentOps }, (_, i) =>
         db.insert(listingEvent).values({
           id: `concurrent-${Date.now()}-${i}`,
           symbol: `CONC${i}USDT`,
@@ -312,14 +328,18 @@ describe("Performance Requirements Tests", () => {
       const totalTime = endTime - startTime;
       const avgTimePerOp = totalTime / concurrentOps;
 
-      console.log(`Concurrent Ops - Total: ${totalTime.toFixed(2)}ms, Avg per op: ${avgTimePerOp.toFixed(2)}ms`);
+      console.log(
+        `Concurrent Ops - Total: ${totalTime.toFixed(2)}ms, Avg per op: ${avgTimePerOp.toFixed(2)}ms`
+      );
 
       expect(totalTime).toBeLessThan(500); // All operations in <500ms
       expect(avgTimePerOp).toBeLessThan(100); // Average should be reasonable
 
       // Cleanup
       for (let i = 0; i < concurrentOps; i++) {
-        await db.delete(listingEvent).where(eq(listingEvent.symbol, `CONC${i}USDT`));
+        await db
+          .delete(listingEvent)
+          .where(eq(listingEvent.symbol, `CONC${i}USDT`));
       }
     });
   });
@@ -330,7 +350,9 @@ describe("Performance Requirements Tests", () => {
       const heapUsedMB = memoryUsage.heapUsed / 1024 / 1024;
       const rssUsedMB = memoryUsage.rss / 1024 / 1024;
 
-      console.log(`Memory Usage - Heap: ${heapUsedMB.toFixed(2)}MB, RSS: ${rssUsedMB.toFixed(2)}MB`);
+      console.log(
+        `Memory Usage - Heap: ${heapUsedMB.toFixed(2)}MB, RSS: ${rssUsedMB.toFixed(2)}MB`
+      );
 
       // Should stay well under 512MB requirement
       expect(heapUsedMB).toBeLessThan(512);
@@ -403,7 +425,9 @@ describe("Performance Requirements Tests", () => {
 
       const totalTime = performance.now() - startTime;
 
-      console.log(`E2E Workflow - Detection: ${detectionTime.toFixed(2)}ms, Total: ${totalTime.toFixed(2)}ms`);
+      console.log(
+        `E2E Workflow - Detection: ${detectionTime.toFixed(2)}ms, Total: ${totalTime.toFixed(2)}ms`
+      );
 
       expect(detectionTime).toBeLessThan(100);
       expect(totalTime).toBeLessThan(600); // Total including all DB ops
@@ -417,7 +441,7 @@ describe("Performance Requirements Tests", () => {
 
 /**
  * Test Summary:
- * 
+ *
  * ✅ Listing detection: <100ms
  * ✅ Trade execution workflow: <500ms
  * ✅ Database SELECT queries: <50ms
@@ -427,14 +451,14 @@ describe("Performance Requirements Tests", () => {
  * ✅ Memory usage: <512MB
  * ✅ No memory leaks
  * ✅ End-to-end sub-second performance
- * 
+ *
  * These performance tests validate:
  * - All critical timing requirements are met
  * - Database operations are optimized
  * - System can handle concurrent operations
  * - Memory footprint stays within limits
  * - Complete workflow achieves sub-second target
- * 
+ *
  * Performance Targets Met:
  * ✅ <100ms listing detection
  * ✅ <500ms trade execution

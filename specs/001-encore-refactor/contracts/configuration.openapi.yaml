@@ -1,0 +1,140 @@
+openapi: 3.0.3
+info:
+  title: Bot Configuration API
+  version: 1.0.0
+  description: Manage bot configuration presets
+
+paths:
+  /configurations:
+    get:
+      operationId: listConfigurations
+      summary: List all bot configurations
+      tags:
+        - Configuration
+      responses:
+        '200':
+          description: List of configurations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configurations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BotConfiguration'
+    
+    post:
+      operationId: createConfiguration
+      summary: Create a new bot configuration
+      tags:
+        - Configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateConfigurationRequest'
+      responses:
+        '201':
+          description: Configuration created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BotConfiguration'
+        '400':
+          description: Invalid configuration parameters
+
+  /configurations/{id}:
+    get:
+      operationId: getConfiguration
+      summary: Get a specific configuration
+      tags:
+        - Configuration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Configuration details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BotConfiguration'
+        '404':
+          description: Configuration not found
+
+components:
+  schemas:
+    BotConfiguration:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        symbols:
+          type: array
+          items:
+            type: string
+        quoteAmount:
+          type: number
+          minimum: 0
+        maxTradesPerHour:
+          type: integer
+          minimum: 1
+          maximum: 100
+        maxDailySpend:
+          type: number
+          minimum: 0
+        recvWindow:
+          type: integer
+          maximum: 1000
+        safetyEnabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+
+    CreateConfigurationRequest:
+      type: object
+      required:
+        - name
+        - symbols
+        - quoteAmount
+        - maxTradesPerHour
+        - maxDailySpend
+        - recvWindow
+      properties:
+        name:
+          type: string
+          minLength: 1
+        symbols:
+          type: array
+          items:
+            type: string
+          minItems: 1
+        quoteAmount:
+          type: number
+          minimum: 0.01
+        maxTradesPerHour:
+          type: integer
+          minimum: 1
+          maximum: 100
+        maxDailySpend:
+          type: number
+          minimum: 0
+        recvWindow:
+          type: integer
+          maximum: 1000
+          default: 1000
+        safetyEnabled:
+          type: boolean
+          default: true

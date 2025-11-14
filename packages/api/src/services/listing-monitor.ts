@@ -1,8 +1,6 @@
-import { Effect, Layer, Context } from "effect";
-import { listingDetector } from "./listing-detector";
-import { tradingOrchestrator } from "./trading-orchestrator";
+import { Context, Effect, Layer } from "effect";
 import { TradingError, TradingLogger } from "../lib/effect";
-import { mexcClient } from "./mexc-client";
+import { listingDetector } from "./listing-detector";
 
 // Service interface for dependency injection
 export type ListingMonitorService = {
@@ -13,7 +11,9 @@ export type ListingMonitorService = {
 };
 
 // Service tag
-export const ListingMonitorServiceTag = Context.Tag<ListingMonitorService>("ListingMonitorService");
+export const ListingMonitorServiceTag = Context.Tag<ListingMonitorService>(
+  "ListingMonitorService"
+);
 
 // Monitoring statistics type
 export type MonitoringStats = {
@@ -30,11 +30,11 @@ export type MonitoringStats = {
 let isRunning = false;
 let startTime: Date | undefined;
 let totalCycles = 0;
-let cycleTimes: number[] = [];
+const cycleTimes: number[] = [];
 let errorsEncountered = 0;
 let monitoringInterval: NodeJS.Timeout | null = null;
 
-const MONITORING_INTERVAL = 5_000; // 5 seconds
+const MONITORING_INTERVAL = 5000; // 5 seconds
 const MAX_CYCLE_TIME_HISTORY = 100;
 
 // Implementation
@@ -66,7 +66,6 @@ export const listingMonitor: ListingMonitorService = {
 
         // Start the monitoring loop
         yield* startMonitoringLoop();
-
       } catch (error) {
         yield* TradingLogger.logError("Failed to start listing monitor", error);
         throw new TradingError({
@@ -102,7 +101,6 @@ export const listingMonitor: ListingMonitorService = {
         isRunning = false;
 
         yield* TradingLogger.logInfo("Listing monitor stopped successfully");
-
       } catch (error) {
         yield* TradingLogger.logError("Failed to stop listing monitor", error);
         throw new TradingError({
@@ -118,16 +116,18 @@ export const listingMonitor: ListingMonitorService = {
   isMonitoring: () => Effect.succeed(isRunning),
 
   // Get current monitoring statistics
-  getMonitoringStats: () => Effect.succeed({
-    isRunning,
-    startTime,
-    totalCycles,
-    lastCycleTime,
-    averageCycleTime: cycleTimes.length > 0 
-      ? cycleTimes.reduce((sum, time) => sum + time, 0) / cycleTimes.length 
-      : 0,
-    errorsSinceStart: errorsEncountered,
-  }),
+  getMonitoringStats: () =>
+    Effect.succeed({
+      isRunning,
+      startTime,
+      totalCycles,
+      lastCycleTime,
+      averageCycleTime:
+        cycleTimes.length > 0
+          ? cycleTimes.reduce((sum, time) => sum + time, 0) / cycleTimes.length
+          : 0,
+      errorsSinceStart: errorsEncountered,
+    }),
 };
 
 // Internal function to start the monitoring loop
@@ -137,10 +137,10 @@ const startMonitoringLoop = (): Effect.Effect<void, TradingError> => {
 
     // Set up the interval for periodic monitoring
     monitoringInterval = setInterval(() => {
-      // This is simplified - in a real implementation, 
+      // This is simplified - in a real implementation,
       // this would be wrapped in Effect properly
       performMonitoringCycle().catch((error) => {
-        errorsEncountered = errorsEncountered + 1;
+        errorsEncountered += 1;
         TradingLogger.logError("Monitoring cycle failed", error);
       });
     }, MONITORING_INTERVAL);
@@ -158,33 +158,37 @@ const performMonitoringCycle = async (): Promise<void> => {
     await Effect.runPromise(listingDetector.checkForNewListings());
 
     // Update statistics
-    totalCycles = totalCycles + 1;
+    totalCycles += 1;
     lastCycleTime = new Date();
     const cycleTime = Date.now() - cycleStartTime;
-    
+
     // Keep cycle time history limited
     cycleTimes.push(cycleTime);
     if (cycleTimes.length > MAX_CYCLE_TIME_HISTORY) {
       cycleTimes.shift();
     }
 
-    await Effect.runPromise(TradingLogger.logDebug(
-      `Monitoring cycle completed in ${cycleTime}ms`
-    ));
-
+    await Effect.runPromise(
+      TradingLogger.logDebug(`Monitoring cycle completed in ${cycleTime}ms`)
+    );
   } catch (error) {
     errorsEncountered++;
-    await Effect.runPromise(TradingLogger.logError("Monitoring cycle failed", error));
+    await Effect.runPromise(
+      TradingLogger.logError("Monitoring cycle failed", error)
+    );
     throw error;
   }
 };
 
 // Health check function
-export const healthCheck = (): Effect.Effect<{
-  status: "healthy" | "degraded" | "unhealthy";
-  issues: string[];
-  recommendations: string[];
-}, TradingError> => {
+export const healthCheck = (): Effect.Effect<
+  {
+    status: "healthy" | "degraded" | "unhealthy";
+    issues: string[];
+    recommendations: string[];
+  },
+  TradingError
+> => {
   return Effect.gen(function* () {
     const stats = yield* listingMonitor.getMonitoringStats();
     const issues: string[] = [];
@@ -206,8 +210,11 @@ export const healthCheck = (): Effect.Effect<{
     }
 
     // Check cycle time
-    if (stats.averageCycleTime > 10000) { // 10 seconds
-      issues.push(`Slow average cycle time: ${stats.averageCycleTime.toFixed(0)}ms`);
+    if (stats.averageCycleTime > 10_000) {
+      // 10 seconds
+      issues.push(
+        `Slow average cycle time: ${stats.averageCycleTime.toFixed(0)}ms`
+      );
       recommendations.push("Optimize monitoring cycle performance");
     }
 
@@ -233,15 +240,15 @@ export const ListingMonitorLayer = Layer.succeed(
 
 /**
  * Usage Example:
- * 
+ *
  * ```typescript
  * // Start monitoring
  * await Effect.runPromise(listingMonitor.startMonitoring());
- * 
+ *
  * // Check status
  * const stats = await Effect.runPromise(listingMonitor.getMonitoringStats());
  * console.log("Monitoring stats:", stats);
- * 
+ *
  * // Stop monitoring
  * await Effect.runPromise(listingMonitor.stopMonitoring());
  * ```

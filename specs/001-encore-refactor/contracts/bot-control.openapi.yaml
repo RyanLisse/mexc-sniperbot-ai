@@ -1,0 +1,128 @@
+openapi: 3.0.3
+info:
+  title: Encore Bot Control API
+  version: 1.0.0
+  description: Start/stop commands and status queries for the trading bot
+
+paths:
+  /bot/start:
+    post:
+      operationId: startBot
+      summary: Start the trading bot with a configuration
+      tags:
+        - Bot Control
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - configurationId
+              properties:
+                configurationId:
+                  type: string
+                  format: uuid
+                  description: ID of the BotConfiguration to apply
+      responses:
+        '200':
+          description: Bot start command acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  runId:
+                    type: string
+                    description: Unique identifier for this bot run
+                  status:
+                    type: string
+                    enum: [starting, running]
+                  acknowledgedAt:
+                    type: string
+                    format: date-time
+        '400':
+          description: Invalid configuration or bot already running
+        '500':
+          description: Internal error during startup
+
+  /bot/stop:
+    post:
+      operationId: stopBot
+      summary: Stop the currently running bot
+      tags:
+        - Bot Control
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                graceful:
+                  type: boolean
+                  default: true
+                  description: Wait for in-flight orders to complete
+      responses:
+        '200':
+          description: Bot stop command acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  runId:
+                    type: string
+                  status:
+                    type: string
+                    enum: [stopping, stopped]
+                  stoppedAt:
+                    type: string
+                    format: date-time
+        '400':
+          description: Bot not running
+        '500':
+          description: Internal error during shutdown
+
+  /bot/status:
+    get:
+      operationId: getBotStatus
+      summary: Get current bot status and metrics
+      tags:
+        - Bot Control
+      responses:
+        '200':
+          description: Current bot status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  isRunning:
+                    type: boolean
+                  currentRun:
+                    type: object
+                    nullable: true
+                    properties:
+                      runId:
+                        type: string
+                      status:
+                        type: string
+                        enum: [starting, running, stopping, stopped, failed]
+                      startedAt:
+                        type: string
+                        format: date-time
+                      lastHeartbeat:
+                        type: string
+                        format: date-time
+                  metrics:
+                    type: object
+                    properties:
+                      tradesThisHour:
+                        type: integer
+                      spentToday:
+                        type: number
+                      queueDepth:
+                        type: integer
+                      avgLatencyMs:
+                        type: number

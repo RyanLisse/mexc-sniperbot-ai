@@ -60,6 +60,10 @@ drizzle/
 # Effect-TS
 .effect/
 
+# Encore
+.encore/
+encore.gen/
+
 # Security
 *.key
 *.pem

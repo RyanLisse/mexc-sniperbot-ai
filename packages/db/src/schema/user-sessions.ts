@@ -6,7 +6,9 @@ export const userSession = pgTable("user_sessions", {
   // Authentication
   userId: uuid("user_id").notNull(),
   sessionToken: text("session_token").notNull().unique(),
+  refreshToken: text("refresh_token").notNull().unique(),
   expiresAt: timestamp("expires_at").notNull(),
+  refreshExpiresAt: timestamp("refresh_expires_at").notNull(),
 
   // Access Control
   permissions: text("permissions").array().notNull().default([]),

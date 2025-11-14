@@ -15,8 +15,6 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
-  NEXTAUTH_SECRET: z.string().min(1, "NEXTAUTH_SECRET is required"),
-  NEXTAUTH_URL: z.string().url().optional(),
 
   // Logging
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
@@ -41,23 +39,70 @@ const envSchema = z.object({
 // Environment type
 export type Environment = z.infer<typeof envSchema>;
 
+const FALLBACK_DATABASE_URL =
+  "postgresql://localhost:5432/mexc_sniperbot_dev?sslmode=disable";
+const FALLBACK_MEXC_KEY = "development-placeholder-key";
+const FALLBACK_MEXC_SECRET = "development-placeholder-secret";
+
+function buildDevelopmentFallbackEnv(): Environment {
+  const fallbackInput = {
+    DATABASE_URL:
+      process.env.DATABASE_URL && process.env.DATABASE_URL.length > 0
+        ? process.env.DATABASE_URL
+        : FALLBACK_DATABASE_URL,
+    MEXC_API_KEY:
+      process.env.MEXC_API_KEY && process.env.MEXC_API_KEY.length > 0
+        ? process.env.MEXC_API_KEY
+        : FALLBACK_MEXC_KEY,
+    MEXC_SECRET_KEY:
+      process.env.MEXC_SECRET_KEY && process.env.MEXC_SECRET_KEY.length > 0
+        ? process.env.MEXC_SECRET_KEY
+        : FALLBACK_MEXC_SECRET,
+    MEXC_BASE_URL: process.env.MEXC_BASE_URL ?? "https://api.mexc.com",
+    NODE_ENV: process.env.NODE_ENV ?? "development",
+    LOG_LEVEL: process.env.LOG_LEVEL ?? "info",
+    API_TIMEOUT_MS: process.env.API_TIMEOUT_MS ?? "5000",
+    DB_QUERY_TIMEOUT_MS: process.env.DB_QUERY_TIMEOUT_MS ?? "1000",
+    ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS ?? "http://localhost:3001",
+    CORS_ENABLED: process.env.CORS_ENABLED ?? "true",
+    MAX_TRADES_PER_HOUR: process.env.MAX_TRADES_PER_HOUR ?? "10",
+    DEFAULT_POLLING_INTERVAL_MS:
+      process.env.DEFAULT_POLLING_INTERVAL_MS ?? "5000",
+    DEFAULT_ORDER_TIMEOUT_MS:
+      process.env.DEFAULT_ORDER_TIMEOUT_MS ?? "10000",
+  };
+
+  return envSchema.parse(fallbackInput);
+}
+
+const ENV_FALLBACK_REASON = "Environment validation failed";
+
 // Environment validation effect
-export const validateEnvironment = Effect.try({
-  try: () => {
-    const env = envSchema.parse(process.env);
-    return env;
-  },
-  catch: (error) => {
-    if (error instanceof z.ZodError) {
-      const errors = error.errors
-        .map((err) => `${err.path.join(".")}: ${err.message}`)
-        .join(", ");
-      throw new Error(`Environment validation failed: ${errors}`);
+export const validateEnvironment = Effect.gen(function* () {
+  const parsed = envSchema.safeParse(process.env);
+
+  if (parsed.success) {
+    return parsed.data;
+  }
+
+  const nodeEnv = process.env.NODE_ENV ?? "development";
+  const issues = parsed.error.issues
+    .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+    .join(", ");
+
+  if (nodeEnv === "production") {
+    throw new Error(`${ENV_FALLBACK_REASON}: ${issues}`);
+  }
+
+  yield* Effect.logWarning(
+    `${ENV_FALLBACK_REASON}. Using development fallback values.`,
+    {
+      nodeEnv,
+      issues,
     }
-    throw new Error(
-      `Environment validation failed: ${error instanceof Error ? error.message : "Unknown error"}`
-    );
-  },
+  );
+
+  return buildDevelopmentFallbackEnv();
 });
 
 // Cached environment variable
@@ -89,14 +134,6 @@ export function getMEXCConfig() {
     secretKey: env.MEXC_SECRET_KEY,
     baseUrl: env.MEXC_BASE_URL,
     timeout: env.API_TIMEOUT_MS,
-  };
-}
-
-export function getAuthConfig() {
-  const env = getEnvironment();
-  return {
-    secret: env.NEXTAUTH_SECRET,
-    url: env.NEXTAUTH_URL,
   };
 }
 
@@ -143,10 +180,6 @@ export const validateStartupEnvironment = Effect.gen(function* () {
     throw new Error(
       "MEXC API credentials are required for trading functionality"
     );
-  }
-
-  if (env.NODE_ENV === "production" && !env.NEXTAUTH_URL) {
-    throw new Error("NEXTAUTH_URL is required in production");
   }
 
   yield* Effect.logInfo("Environment validation successful", {

@@ -12,9 +12,18 @@
   },
   "type": "module",
   "scripts": {
-    "build": "tsdown"
+    "build": "tsdown",
+    "test": "bun test",
+    "test:unit": "bun test src/__tests__/unit",
+    "test:integration": "bun test src/__tests__/integration",
+    "test:performance": "bun test src/__tests__/performance",
+    "test:coverage": "bun test --coverage",
+    "test:watch": "bun test --watch"
   },
   "devDependencies": {
+    "@effect/platform": "^0.93.0",
+    "@effect/schema": "^0.75.5",
+    "effect": "^3.19.2",
     "tsdown": "catalog:"
   },
   "peerDependencies": {
@@ -29,6 +38,9 @@
     "@ai-sdk/google": "catalog:",
     "dotenv": "catalog:",
     "zod": "catalog:",
-    "@mexc-sniperbot-ai/db": "workspace:*"
+    "@mexc-sniperbot-ai/db": "workspace:*",
+    "encore.dev": "^1.50.0",
+    "mexc-api-sdk": "^1.0.0",
+    "pino": "^9.0.0"
   }
 }

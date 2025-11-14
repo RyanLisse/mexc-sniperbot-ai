@@ -1,0 +1,177 @@
+openapi: 3.0.3
+info:
+  title: Trade Logs API
+  version: 1.0.0
+  description: Query trade history and audit logs
+
+paths:
+  /trades:
+    get:
+      operationId: listTrades
+      summary: List trade orders with filters
+      tags:
+        - Trades
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, submitted, filled, rejected, failed]
+        - name: symbol
+          in: query
+          schema:
+            type: string
+        - name: since
+          in: query
+          description: Filter trades after this timestamp
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of trade orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trades:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TradeOrder'
+                  total:
+                    type: integer
+                  hasMore:
+                    type: boolean
+
+  /trades/{id}:
+    get:
+      operationId: getTrade
+      summary: Get detailed trade information
+      tags:
+        - Trades
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Trade details with full log
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  order:
+                    $ref: '#/components/schemas/TradeOrder'
+                  log:
+                    $ref: '#/components/schemas/TradeLog'
+        '404':
+          description: Trade not found
+
+  /trades/export:
+    get:
+      operationId: exportTrades
+      summary: Export trades as CSV for audit
+      tags:
+        - Trades
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+
+components:
+  schemas:
+    TradeOrder:
+      type: object
+      properties:
+        id:
+          type: string
+        runId:
+          type: string
+        signalId:
+          type: string
+        symbol:
+          type: string
+        side:
+          type: string
+          enum: [buy, sell]
+        orderType:
+          type: string
+          enum: [market, limit]
+        quoteAmount:
+          type: number
+          nullable: true
+        quantity:
+          type: number
+          nullable: true
+        status:
+          type: string
+          enum: [pending, submitted, filled, rejected, failed]
+        submittedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        executedPrice:
+          type: number
+          nullable: true
+        executedQuantity:
+          type: number
+          nullable: true
+        mexcOrderId:
+          type: string
+          nullable: true
+        latencyMs:
+          type: number
+          nullable: true
+
+    TradeLog:
+      type: object
+      properties:
+        id:
+          type: string
+        orderId:
+          type: string
+        exchangeResponse:
+          type: object
+        fillQuantity:
+          type: number
+        fillPrice:
+          type: number
+        fees:
+          type: object
+        loggedAt:
+          type: string
+          format: date-time

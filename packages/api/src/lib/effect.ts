@@ -1,36 +1,69 @@
-import { Context, Effect, pipe, Schema, Schedule } from "effect";
+import { Context, Effect, pipe, Schedule, Schema } from "effect";
 
 // Error types for the trading system
-export class TradingError extends Schema.TaggedError<TradingError>()("TradingError", {
-  message: Schema.String,
-  code: Schema.String,
-  timestamp: Schema.DateFromSelf,
-}) {}
+export class TradingError extends Schema.TaggedError<TradingError>()(
+  "TradingError",
+  {
+    message: Schema.String,
+    code: Schema.String,
+    timestamp: Schema.DateFromSelf,
+  }
+) {}
 
-export class MEXCApiError extends Schema.TaggedError<MEXCApiError>()("MEXCApiError", {
-  message: Schema.String,
-  code: Schema.String,
-  statusCode: Schema.optional(Schema.Number),
-  timestamp: Schema.DateFromSelf,
-}) {}
+export class MEXCApiError extends Schema.TaggedError<MEXCApiError>()(
+  "MEXCApiError",
+  {
+    message: Schema.String,
+    code: Schema.String,
+    statusCode: Schema.optional(Schema.Number),
+    timestamp: Schema.DateFromSelf,
+  }
+) {}
 
-export class DatabaseError extends Schema.TaggedError<DatabaseError>()("DatabaseError", {
-  message: Schema.String,
-  code: Schema.String,
-  timestamp: Schema.DateFromSelf,
-}) {}
+export class DatabaseError extends Schema.TaggedError<DatabaseError>()(
+  "DatabaseError",
+  {
+    message: Schema.String,
+    code: Schema.String,
+    timestamp: Schema.DateFromSelf,
+  }
+) {}
 
-export class ConfigurationError extends Schema.TaggedError<ConfigurationError>()("ConfigurationError", {
-  message: Schema.String,
-  field: Schema.optional(Schema.String),
-  timestamp: Schema.DateFromSelf,
-}) {}
+export class ConfigurationError extends Schema.TaggedError<ConfigurationError>()(
+  "ConfigurationError",
+  {
+    message: Schema.String,
+    field: Schema.optional(Schema.String),
+    timestamp: Schema.DateFromSelf,
+  }
+) {}
 
-export class MonitoringError extends Schema.TaggedError<MonitoringError>()("MonitoringError", {
-  message: Schema.String,
-  code: Schema.optional(Schema.String),
-  timestamp: Schema.DateFromSelf,
-}) {}
+export class AuthenticationError extends Schema.TaggedError<AuthenticationError>()(
+  "AuthenticationError",
+  {
+    message: Schema.String,
+    code: Schema.String,
+    timestamp: Schema.DateFromSelf,
+  }
+) {}
+
+export class MonitoringError extends Schema.TaggedError<MonitoringError>()(
+  "MonitoringError",
+  {
+    message: Schema.String,
+    code: Schema.optional(Schema.String),
+    timestamp: Schema.DateFromSelf,
+  }
+) {}
+
+export class SecurityError extends Schema.TaggedError<SecurityError>()(
+  "SecurityError",
+  {
+    message: Schema.String,
+    code: Schema.String,
+    timestamp: Schema.DateFromSelf,
+  }
+) {}
 
 // Service interfaces for dependency injection
 export class MEXCApiClient extends Context.Tag("MEXCApiClient")<
@@ -134,31 +167,33 @@ export const timeoutConfig = {
 // Helper functions
 export const withRetry = <A, E>(
   effect: Effect.Effect<A, E, never>
-): Effect.Effect<A, E, never> => pipe(
-  effect,
-  Effect.retry(Schedule.exponential(1000))
-);
+): Effect.Effect<A, E, never> =>
+  pipe(effect, Effect.retry(Schedule.exponential(1000)));
 
 export const withLogging = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
   operation: string
-): Effect.Effect<A, E, R> => pipe(
-  effect,
-  Effect.tapError((error) =>
-    Effect.logError(`Operation failed: ${operation}`, error)
-  ),
-  Effect.tap(() => Effect.logInfo(`Operation completed: ${operation}`))
-);
+): Effect.Effect<A, E, R> =>
+  pipe(
+    effect,
+    Effect.tapError((error) =>
+      Effect.logError(`Operation failed: ${operation}`, error)
+    ),
+    Effect.tap(() => Effect.logInfo(`Operation completed: ${operation}`))
+  );
 
 // Trading logger utilities
 export const TradingLogger = {
   logInfo: (message: string, data?: unknown) => Effect.logInfo(message, data),
-  logError: (message: string, error?: unknown) => Effect.logError(message, error),
+  logError: (message: string, error?: unknown) =>
+    Effect.logError(message, error),
   logDebug: (message: string, data?: unknown) => Effect.logDebug(message, data),
-  logWarning: (message: string, data?: unknown) => Effect.logWarning(message, data),
+  logWarning: (message: string, data?: unknown) =>
+    Effect.logWarning(message, data),
 };
 
-// Circuit breaker pattern for API resilience
+// Legacy circuit breaker pattern for API resilience (deprecated - use Opossum instead)
+// Kept for backward compatibility during migration
 export class CircuitBreaker {
   private failuresCount = 0;
   private lastFailureTime = 0;
@@ -210,5 +245,5 @@ export class CircuitBreaker {
   }
 }
 
-// Default circuit breaker instance
+// Default circuit breaker instance (deprecated - use Opossum circuit breakers)
 export const defaultCircuitBreaker = new CircuitBreaker();

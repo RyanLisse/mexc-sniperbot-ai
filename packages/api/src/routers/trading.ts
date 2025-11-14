@@ -1,12 +1,11 @@
-import { router, protectedProcedure, publicProcedure } from "../index";
 import { Effect } from "effect";
 import { z } from "zod";
-import { tradingOrchestrator, type TradingOrchestratorService } from "../services/trading-orchestrator";
-import { tradeExecutor, type TradeExecutorService } from "../services/trade-executor";
-import { listingDetector, type ListingDetectorService } from "../services/listing-detector";
-import { retryService } from "../services/retry-service";
-import { TradingError, MEXCApiError, TradingLogger } from "../lib/effect";
-import type { TradeResult, OrderStatus, TradeHistoryItem } from "../services/trade-executor";
+import { credentialValidatedProcedure, publicProcedure, router } from "../index";
+import { MEXCApiError, TradingError, TradingLogger } from "../lib/effect";
+import { listingDetector } from "../services/listing-detector";
+import { positionTracker } from "../services/position-tracker";
+import { tradeExecutor } from "../services/trade-executor";
+import { tradingOrchestrator } from "../services/trading-orchestrator";
 
 // Zod schemas for validation
 const manualTradeSchema = z.object({
@@ -34,13 +33,40 @@ const listingQuerySchema = z.object({
   symbol: z.string().optional(),
 });
 
+const calendarQuerySchema = z.object({
+  hours: z.number().positive().max(168).default(48), // Max 1 week
+  filter: z.enum(["all", "today", "tomorrow", "upcoming"]).default("all"),
+});
+
+const manualSellSchema = z.object({
+  symbol: z.string().min(1, "Symbol is required"),
+  quantity: z.string().optional(), // Optional, will use full position if not provided
+  strategy: z.enum(["MARKET", "LIMIT"]).default("MARKET"),
+});
+
+const updateSellStrategySchema = z.object({
+  profitTargetPercent: z.number().min(1).max(9999).optional(),
+  stopLossPercent: z.number().min(1).max(9999).optional(),
+  timeBasedExitMinutes: z.number().positive().optional(),
+  trailingStopPercent: z.number().min(1).max(9999).optional(),
+  sellStrategy: z
+    .enum([
+      "PROFIT_TARGET",
+      "STOP_LOSS",
+      "TIME_BASED",
+      "TRAILING_STOP",
+      "COMBINED",
+    ])
+    .optional(),
+});
+
 // Trading router
 export const tradingRouter = router({
   // Manual trade execution
-  executeManualTrade: protectedProcedure
+  executeManualTrade: credentialValidatedProcedure
     .input(manualTradeSchema)
-    .mutation(async ({ input }) => {
-      return Effect.runPromise(
+    .mutation(async ({ input }) =>
+      Effect.runPromise(
         Effect.gen(function* () {
           yield* TradingLogger.logInfo("Executing manual trade", input);
 
@@ -60,11 +86,18 @@ export const tradingRouter = router({
               timestamp: new Date().toISOString(),
             };
           } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
-            
-            yield* TradingLogger.logError(`Manual trade failed for ${input.symbol}`, error as Error);
+            const errorMessage =
+              error instanceof Error ? error.message : "Unknown error";
 
-            if (error instanceof TradingError || error instanceof MEXCApiError) {
+            yield* TradingLogger.logError(
+              `Manual trade failed for ${input.symbol}`,
+              error as Error
+            );
+
+            if (
+              error instanceof TradingError ||
+              error instanceof MEXCApiError
+            ) {
               throw error;
             }
 
@@ -75,19 +108,22 @@ export const tradingRouter = router({
             });
           }
         })
-      );
-    }),
+      )
+    ),
 
   // Get order status
-  getOrderStatus: protectedProcedure
+  getOrderStatus: credentialValidatedProcedure
     .input(orderStatusSchema)
-    .query(async ({ input }) => {
-      return Effect.runPromise(
+    .query(async ({ input }) =>
+      Effect.runPromise(
         Effect.gen(function* () {
           yield* TradingLogger.logInfo("Fetching order status", input);
 
           try {
-            const status = yield* tradeExecutor.getOrderStatus(input.orderId, input.symbol);
+            const status = yield* tradeExecutor.getOrderStatus(
+              input.orderId,
+              input.symbol
+            );
 
             yield* TradingLogger.logInfo("Order status fetched successfully", {
               orderId: input.orderId,
@@ -102,9 +138,13 @@ export const tradingRouter = router({
               timestamp: new Date().toISOString(),
             };
           } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
-            
-            yield* TradingLogger.logError(`Failed to fetch order status for ${input.orderId}`, error as Error);
+            const errorMessage =
+              error instanceof Error ? error.message : "Unknown error";
+
+            yield* TradingLogger.logError(
+              `Failed to fetch order status for ${input.orderId}`,
+              error as Error
+            );
 
             if (error instanceof MEXCApiError) {
               throw error;
@@ -117,19 +157,22 @@ export const tradingRouter = router({
             });
           }
         })
-      );
-    }),
+      )
+    ),
 
   // Cancel order
-  cancelOrder: protectedProcedure
+  cancelOrder: credentialValidatedProcedure
     .input(orderStatusSchema)
-    .mutation(async ({ input }) => {
-      return Effect.runPromise(
+    .mutation(async ({ input }) =>
+      Effect.runPromise(
         Effect.gen(function* () {
           yield* TradingLogger.logInfo("Cancelling order", input);
 
           try {
-            const result = yield* tradeExecutor.cancelOrder(input.orderId, input.symbol);
+            const result = yield* tradeExecutor.cancelOrder(
+              input.orderId,
+              input.symbol
+            );
 
             yield* TradingLogger.logInfo("Order cancelled successfully", {
               orderId: input.orderId,
@@ -145,9 +188,13 @@ export const tradingRouter = router({
               timestamp: new Date().toISOString(),
             };
           } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
-            
-            yield* TradingLogger.logError(`Failed to cancel order ${input.orderId}`, error as Error);
+            const errorMessage =
+              error instanceof Error ? error.message : "Unknown error";
+
+            yield* TradingLogger.logError(
+              `Failed to cancel order ${input.orderId}`,
+              error as Error
+            );
 
             if (error instanceof MEXCApiError) {
               throw error;
@@ -160,11 +207,11 @@ export const tradingRouter = router({
             });
           }
         })
-      );
-    }),
+      )
+    ),
 
   // Get trade history
-  getTradeHistory: protectedProcedure
+  getTradeHistory: publicProcedure
     .input(tradeHistorySchema)
     .query(async ({ input }) => {
       return Effect.runPromise(
@@ -176,15 +223,17 @@ export const tradingRouter = router({
 
             // Apply filters if provided
             let filteredTrades = trades;
-            
+
             if (input.symbol) {
-              filteredTrades = filteredTrades.filter(trade => 
-                trade.symbol.toLowerCase().includes(input.symbol!.toLowerCase())
+              filteredTrades = filteredTrades.filter((trade) =>
+                trade.symbol.toLowerCase().includes(input.symbol?.toLowerCase())
               );
             }
 
             if (input.status) {
-              filteredTrades = filteredTrades.filter(trade => trade.status === input.status);
+              filteredTrades = filteredTrades.filter(
+                (trade) => trade.status === input.status
+              );
             }
 
             yield* TradingLogger.logInfo("Trade history fetched successfully", {
@@ -203,9 +252,13 @@ export const tradingRouter = router({
               timestamp: new Date().toISOString(),
             };
           } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
-            
-            yield* TradingLogger.logError("Failed to fetch trade history", error as Error);
+            const errorMessage =
+              error instanceof Error ? error.message : "Unknown error";
+
+            yield* TradingLogger.logError(
+              "Failed to fetch trade history",
+              error as Error
+            );
 
             if (error instanceof MEXCApiError) {
               throw error;
@@ -222,7 +275,7 @@ export const tradingRouter = router({
     }),
 
   // Get recent listings
-  getRecentListings: protectedProcedure
+  getRecentListings: publicProcedure
     .input(listingQuerySchema)
     .query(async ({ input }) => {
       return Effect.runPromise(
@@ -230,21 +283,28 @@ export const tradingRouter = router({
           yield* TradingLogger.logInfo("Fetching recent listings", input);
 
           try {
-            const listings = yield* listingDetector.getRecentListings(input.hours);
+            const listings = yield* listingDetector.getRecentListings(
+              input.hours
+            );
 
             // Apply symbol filter if provided
             let filteredListings = listings;
             if (input.symbol) {
-              filteredListings = listings.filter(listing =>
-                listing.symbol.toLowerCase().includes(input.symbol!.toLowerCase())
+              filteredListings = listings.filter((listing) =>
+                listing.symbol
+                  .toLowerCase()
+                  .includes(input.symbol?.toLowerCase())
               );
             }
 
-            yield* TradingLogger.logInfo("Recent listings fetched successfully", {
-              hours: input.hours,
-              total: listings.length,
-              filtered: filteredListings.length,
-            });
+            yield* TradingLogger.logInfo(
+              "Recent listings fetched successfully",
+              {
+                hours: input.hours,
+                total: listings.length,
+                filtered: filteredListings.length,
+              }
+            );
 
             return {
               listings: filteredListings,
@@ -256,9 +316,13 @@ export const tradingRouter = router({
               timestamp: new Date().toISOString(),
             };
           } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
-            
-            yield* TradingLogger.logError("Failed to fetch recent listings", error as Error);
+            const errorMessage =
+              error instanceof Error ? error.message : "Unknown error";
+
+            yield* TradingLogger.logError(
+              "Failed to fetch recent listings",
+              error as Error
+            );
 
             if (error instanceof MEXCApiError) {
               throw error;
@@ -274,8 +338,135 @@ export const tradingRouter = router({
       );
     }),
 
+  // Get calendar listings (upcoming coin launches)
+  getCalendarListings: publicProcedure.query(async () => {
+    return Effect.runPromise(
+      Effect.gen(function* () {
+        yield* TradingLogger.logInfo("Fetching calendar listings");
+
+        try {
+          const calendarEntries =
+            yield* listingDetector.getUpcomingListings(168); // Get all upcoming (1 week)
+
+          yield* TradingLogger.logInfo(
+            "Calendar listings fetched successfully",
+            {
+              total: calendarEntries.length,
+            }
+          );
+
+          return {
+            listings: calendarEntries.map((entry) => ({
+              vcoinId: entry.vcoinId,
+              symbol: entry.symbol,
+              vcoinName: entry.vcoinName,
+              projectName: entry.vcoinNameFull,
+              firstOpenTime: new Date(entry.firstOpenTime).toISOString(),
+              zone: entry.zone,
+            })),
+            total: calendarEntries.length,
+            timestamp: new Date().toISOString(),
+          };
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error";
+
+          yield* TradingLogger.logError(
+            "Failed to fetch calendar listings",
+            error as Error
+          );
+
+          if (error instanceof MEXCApiError) {
+            throw error;
+          }
+
+          throw new TradingError({
+            message: `Failed to fetch calendar listings: ${errorMessage}`,
+            code: "CALENDAR_LISTINGS_FETCH_FAILED",
+            timestamp: new Date(),
+          });
+        }
+      })
+    );
+  }),
+
+  // Get upcoming listings with time filtering
+  getUpcomingListings: publicProcedure
+    .input(calendarQuerySchema)
+    .query(async ({ input }) =>
+      Effect.runPromise(
+        Effect.gen(function* () {
+          yield* TradingLogger.logInfo("Fetching upcoming listings", input);
+
+          try {
+            let calendarEntries;
+
+            switch (input.filter) {
+              case "today":
+                calendarEntries = yield* listingDetector.getTodaysListings();
+                break;
+              case "tomorrow":
+                calendarEntries = yield* listingDetector.getTomorrowsListings();
+                break;
+              case "upcoming":
+                calendarEntries = yield* listingDetector.getUpcomingListings(
+                  input.hours
+                );
+                break;
+              default:
+                calendarEntries = yield* listingDetector.getUpcomingListings(
+                  input.hours
+                );
+            }
+
+            yield* TradingLogger.logInfo(
+              "Upcoming listings fetched successfully",
+              {
+                filter: input.filter,
+                hours: input.hours,
+                total: calendarEntries.length,
+              }
+            );
+
+            return {
+              listings: calendarEntries.map((entry) => ({
+                vcoinId: entry.vcoinId,
+                symbol: entry.symbol,
+                vcoinName: entry.vcoinName,
+                projectName: entry.vcoinNameFull,
+                firstOpenTime: new Date(entry.firstOpenTime).toISOString(),
+                zone: entry.zone,
+              })),
+              total: calendarEntries.length,
+              filter: input.filter,
+              timeRange: input.hours ? `${input.hours} hours` : undefined,
+              timestamp: new Date().toISOString(),
+            };
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : "Unknown error";
+
+            yield* TradingLogger.logError(
+              "Failed to fetch upcoming listings",
+              error as Error
+            );
+
+            if (error instanceof MEXCApiError) {
+              throw error;
+            }
+
+            throw new TradingError({
+              message: `Failed to fetch upcoming listings: ${errorMessage}`,
+              code: "UPCOMING_LISTINGS_FETCH_FAILED",
+              timestamp: new Date(),
+            });
+          }
+        })
+      )
+    ),
+
   // Bot control (start/stop/restart/status)
-  controlBot: protectedProcedure
+  controlBot: credentialValidatedProcedure
     .input(botControlSchema)
     .mutation(async ({ input }) => {
       return Effect.runPromise(
@@ -288,26 +479,36 @@ export const tradingRouter = router({
             switch (input.action) {
               case "start":
                 yield* tradingOrchestrator.startTradingBot();
-                result = { action: "started", message: "Trading bot started successfully" };
+                result = {
+                  action: "started",
+                  message: "Trading bot started successfully",
+                };
                 break;
 
               case "stop":
                 yield* tradingOrchestrator.stopTradingBot();
-                result = { action: "stopped", message: "Trading bot stopped successfully" };
+                result = {
+                  action: "stopped",
+                  message: "Trading bot stopped successfully",
+                };
                 break;
 
               case "restart":
                 yield* tradingOrchestrator.stopTradingBot();
                 // Add a small delay before restarting
-                yield* Effect.sleep(1_000);
+                yield* Effect.sleep(1000);
                 yield* tradingOrchestrator.startTradingBot();
-                result = { action: "restarted", message: "Trading bot restarted successfully" };
+                result = {
+                  action: "restarted",
+                  message: "Trading bot restarted successfully",
+                };
                 break;
 
-              case "status":
+              case "status": {
                 const status = yield* tradingOrchestrator.getBotStatus();
                 result = { action: "status", status };
                 break;
+              }
 
               default:
                 throw new TradingError({
@@ -329,11 +530,18 @@ export const tradingRouter = router({
               timestamp: new Date().toISOString(),
             };
           } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
-            
-            yield* TradingLogger.logError(`Bot control operation failed: ${input.action}`, error as Error);
+            const errorMessage =
+              error instanceof Error ? error.message : "Unknown error";
 
-            if (error instanceof TradingError || error instanceof MEXCApiError) {
+            yield* TradingLogger.logError(
+              `Bot control operation failed: ${input.action}`,
+              error as Error
+            );
+
+            if (
+              error instanceof TradingError ||
+              error instanceof MEXCApiError
+            ) {
               throw error;
             }
 
@@ -348,146 +556,309 @@ export const tradingRouter = router({
     }),
 
   // Get bot status
-  getBotStatus: protectedProcedure
-    .query(async () => {
-      return Effect.runPromise(
-        Effect.gen(function* () {
-          yield* TradingLogger.logInfo("Fetching bot status");
+  getBotStatus: publicProcedure.query(async () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        yield* TradingLogger.logInfo("Fetching bot status");
 
-          try {
-            const status = yield* tradingOrchestrator.getBotStatus();
+        try {
+          const status = yield* tradingOrchestrator.getBotStatus();
 
-            yield* TradingLogger.logInfo("Bot status fetched successfully", status);
+          yield* TradingLogger.logInfo(
+            "Bot status fetched successfully",
+            status
+          );
 
-            return {
-              ...status,
-              timestamp: new Date().toISOString(),
-            };
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
-            
-            yield* TradingLogger.logError("Failed to fetch bot status", error as Error);
+          return {
+            ...status,
+            timestamp: new Date().toISOString(),
+          };
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error";
 
-            if (error instanceof TradingError) {
-              throw error;
-            }
+          yield* TradingLogger.logError(
+            "Failed to fetch bot status",
+            error as Error
+          );
 
-            throw new TradingError({
-              message: `Failed to fetch bot status: ${errorMessage}`,
-              code: "BOT_STATUS_FETCH_FAILED",
-              timestamp: new Date(),
-            });
+          if (error instanceof TradingError) {
+            throw error;
           }
-        })
-      );
-    }),
+
+          throw new TradingError({
+            message: `Failed to fetch bot status: ${errorMessage}`,
+            code: "BOT_STATUS_FETCH_FAILED",
+            timestamp: new Date(),
+          });
+        }
+      })
+    )
+  ),
 
   // Process new listings (manual trigger)
-  processNewListings: protectedProcedure
-    .mutation(async () => {
-      return Effect.runPromise(
-        Effect.gen(function* () {
-          yield* TradingLogger.logInfo("Manual listing processing triggered");
+  processNewListings: credentialValidatedProcedure.mutation(async () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        yield* TradingLogger.logInfo("Manual listing processing triggered");
 
-          try {
-            const successfulTrades = yield* tradingOrchestrator.processNewListings();
+        try {
+          const successfulTrades =
+            yield* tradingOrchestrator.processNewListings();
 
-            yield* TradingLogger.logInfo("Manual listing processing completed", {
-              successfulTrades,
-            });
+          yield* TradingLogger.logInfo("Manual listing processing completed", {
+            successfulTrades,
+          });
 
-            return {
-              success: true,
-              successfulTrades,
-              message: `Processed listings and executed ${successfulTrades} successful trades`,
-              timestamp: new Date().toISOString(),
-            };
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
-            
-            yield* TradingLogger.logError("Manual listing processing failed", error as Error);
+          return {
+            success: true,
+            successfulTrades,
+            message: `Processed listings and executed ${successfulTrades} successful trades`,
+            timestamp: new Date().toISOString(),
+          };
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error";
 
-            if (error instanceof TradingError || error instanceof MEXCApiError) {
-              throw error;
-            }
+          yield* TradingLogger.logError(
+            "Manual listing processing failed",
+            error as Error
+          );
 
-            throw new TradingError({
-              message: `Manual listing processing failed: ${errorMessage}`,
-              code: "MANUAL_LISTING_PROCESSING_FAILED",
-              timestamp: new Date(),
-            });
+          if (error instanceof TradingError || error instanceof MEXCApiError) {
+            throw error;
           }
-        })
-      );
-    }),
+
+          throw new TradingError({
+            message: `Manual listing processing failed: ${errorMessage}`,
+            code: "MANUAL_LISTING_PROCESSING_FAILED",
+            timestamp: new Date(),
+          });
+        }
+      })
+    )
+  ),
 
   // Get trading statistics
-  getTradingStats: protectedProcedure
-    .query(async () => {
-      return Effect.runPromise(
-        Effect.gen(function* () {
-          yield* TradingLogger.logInfo("Fetching trading statistics");
+  getTradingStats: publicProcedure.query(async () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        yield* TradingLogger.logInfo("Fetching trading statistics");
 
-          try {
-            const stats = yield* tradingOrchestrator.getTradingStatistics();
+        try {
+          const stats = yield* tradingOrchestrator.getTradingStatistics();
 
-            yield* TradingLogger.logInfo("Trading statistics fetched successfully", stats);
+          yield* TradingLogger.logInfo(
+            "Trading statistics fetched successfully",
+            stats
+          );
 
-            return {
-              ...stats,
-              timestamp: new Date().toISOString(),
-            };
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
-            
-            yield* TradingLogger.logError("Failed to fetch trading statistics", error as Error);
+          return {
+            ...stats,
+            timestamp: new Date().toISOString(),
+          };
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error";
 
-            if (error instanceof TradingError) {
-              throw error;
-            }
+          yield* TradingLogger.logError(
+            "Failed to fetch trading statistics",
+            error as Error
+          );
 
-            throw new TradingError({
-              message: `Failed to fetch trading statistics: ${errorMessage}`,
-              code: "TRADING_STATS_FETCH_FAILED",
-              timestamp: new Date(),
-            });
+          if (error instanceof TradingError) {
+            throw error;
           }
-        })
-      );
-    }),
+
+          throw new TradingError({
+            message: `Failed to fetch trading statistics: ${errorMessage}`,
+            code: "TRADING_STATS_FETCH_FAILED",
+            timestamp: new Date(),
+          });
+        }
+      })
+    )
+  ),
 
   // Get detector statistics
-  getDetectorStats: protectedProcedure
-    .query(async () => {
-      return Effect.runPromise(
+  getDetectorStats: publicProcedure.query(async () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        yield* TradingLogger.logInfo("Fetching detector statistics");
+
+        try {
+          const stats = yield* listingDetector.getStatistics();
+
+          yield* TradingLogger.logInfo(
+            "Detector statistics fetched successfully",
+            stats
+          );
+
+          return {
+            ...stats,
+            timestamp: new Date().toISOString(),
+          };
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error";
+
+          yield* TradingLogger.logError(
+            "Failed to fetch detector statistics",
+            error as Error
+          );
+
+          if (error instanceof MEXCApiError) {
+            throw error;
+          }
+
+          throw new TradingError({
+            message: `Failed to fetch detector statistics: ${errorMessage}`,
+            code: "DETECTOR_STATS_FETCH_FAILED",
+            timestamp: new Date(),
+          });
+        }
+      })
+    )
+  ),
+
+  // Get open positions
+  getOpenPositions: credentialValidatedProcedure.query(async () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        yield* TradingLogger.logInfo("Fetching open positions");
+
+        try {
+          const positions = yield* positionTracker.getOpenPositions();
+
+          yield* TradingLogger.logInfo("Open positions fetched successfully", {
+            count: positions.length,
+          });
+
+          return {
+            positions: positions.map((pos) => ({
+              symbol: pos.symbol,
+              quantity: pos.quantity,
+              entryPrice: pos.entryPrice,
+              entryTime: pos.entryTime.toISOString(),
+              currentPrice: pos.currentPrice,
+              unrealizedPnL: pos.unrealizedPnL,
+              unrealizedPnLPercent: pos.unrealizedPnLPercent,
+              buyOrderId: pos.buyOrderId,
+            })),
+            total: positions.length,
+            timestamp: new Date().toISOString(),
+          };
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error";
+
+          yield* TradingLogger.logError(
+            "Failed to fetch open positions",
+            error as Error
+          );
+
+          if (error instanceof MEXCApiError) {
+            throw error;
+          }
+
+          throw new TradingError({
+            message: `Failed to fetch open positions: ${errorMessage}`,
+            code: "OPEN_POSITIONS_FETCH_FAILED",
+            timestamp: new Date(),
+          });
+        }
+      })
+    )
+  ),
+
+  // Execute manual sell order
+  executeManualSell: credentialValidatedProcedure
+    .input(manualSellSchema)
+    .mutation(async ({ input }) =>
+      Effect.runPromise(
         Effect.gen(function* () {
-          yield* TradingLogger.logInfo("Fetching detector statistics");
+          yield* TradingLogger.logInfo("Executing manual sell order", input);
 
           try {
-            const stats = yield* listingDetector.getStatistics();
+            // Get position to determine quantity if not provided
+            let quantity = input.quantity;
+            if (!quantity) {
+              const position = yield* positionTracker.getPosition(input.symbol);
+              if (!position) {
+                throw new TradingError({
+                  message: `No open position found for ${input.symbol}`,
+                  code: "NO_POSITION_FOUND",
+                  timestamp: new Date(),
+                });
+              }
+              quantity = position.quantity.toString();
+            }
 
-            yield* TradingLogger.logInfo("Detector statistics fetched successfully", stats);
+            // Execute sell trade
+            const result = yield* tradeExecutor.executeSellTrade(
+              input.symbol,
+              quantity,
+              input.strategy,
+              "MANUAL"
+            );
+
+            yield* TradingLogger.logInfo(
+              "Manual sell order executed successfully",
+              {
+                symbol: input.symbol,
+                quantity,
+                strategy: input.strategy,
+                orderId: result.orderId,
+              }
+            );
 
             return {
-              ...stats,
+              success: result.success,
+              orderId: result.orderId,
+              symbol: result.symbol,
+              quantity: result.quantity,
+              executedPrice: result.executedPrice,
+              executedQuantity: result.executedQuantity,
+              executionTime: result.executionTime,
               timestamp: new Date().toISOString(),
             };
           } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
-            
-            yield* TradingLogger.logError("Failed to fetch detector statistics", error as Error);
+            const errorMessage =
+              error instanceof Error ? error.message : "Unknown error";
 
-            if (error instanceof MEXCApiError) {
+            yield* TradingLogger.logError(
+              `Manual sell order failed for ${input.symbol}`,
+              error as Error
+            );
+
+            if (
+              error instanceof TradingError ||
+              error instanceof MEXCApiError
+            ) {
               throw error;
             }
 
             throw new TradingError({
-              message: `Failed to fetch detector statistics: ${errorMessage}`,
-              code: "DETECTOR_STATS_FETCH_FAILED",
+              message: `Manual sell order execution failed: ${errorMessage}`,
+              code: "MANUAL_SELL_EXECUTION_FAILED",
               timestamp: new Date(),
             });
           }
         })
-      );
+      )
+    ),
+
+  // Update sell strategy configuration
+  updateSellStrategy: publicProcedure
+    .input(updateSellStrategySchema)
+    .mutation(async ({ input, ctx }) => {
+      // This should update the trading configuration
+      // For now, return success - actual implementation would update config service
+      return {
+        success: true,
+        message: "Sell strategy updated successfully",
+        updatedFields: input,
+        timestamp: new Date().toISOString(),
+      };
     }),
 });

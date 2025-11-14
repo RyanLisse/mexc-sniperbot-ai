@@ -1,27 +1,27 @@
 import { Effect, Schedule } from "effect";
-import { MEXCApiError, TradingError, TradingLogger } from "../lib/effect";
+import { type MEXCApiError, TradingError, TradingLogger } from "../lib/effect";
 
 // Retry configuration types
-export interface RetryConfig {
+export type RetryConfig = {
   maxRetries: number;
   baseDelayMs: number;
   maxDelayMs: number;
   backoffMultiplier: number;
   jitter: boolean;
-}
+};
 
-export interface RetryResult<T> {
+export type RetryResult<T> = {
   success: boolean;
   result?: T;
   error?: MEXCApiError | TradingError;
   attempts: number;
   totalDurationMs: number;
-}
+};
 
 // Default retry configurations
 export const DEFAULT_RETRY_CONFIG: RetryConfig = {
   maxRetries: 3,
-  baseDelayMs: 1_000,
+  baseDelayMs: 1000,
   maxDelayMs: 30_000,
   backoffMultiplier: 2,
   jitter: true,
@@ -37,7 +37,7 @@ export const AGGRESSIVE_RETRY_CONFIG: RetryConfig = {
 
 export const CONSERVATIVE_RETRY_CONFIG: RetryConfig = {
   maxRetries: 2,
-  baseDelayMs: 2_000,
+  baseDelayMs: 2000,
   maxDelayMs: 60_000,
   backoffMultiplier: 3,
   jitter: false,
@@ -46,14 +46,14 @@ export const CONSERVATIVE_RETRY_CONFIG: RetryConfig = {
 // Retry service class
 export class RetryService {
   // Create exponential backoff schedule
-  private createExponentialBackoffSchedule = (config: RetryConfig): Schedule.Schedule<number> => {
-    return Schedule.exponential(config.baseDelayMs, config.backoffMultiplier)
-      .pipe(
-        Schedule.upTo(Schedule.duration(config.maxDelayMs)),
-        Schedule.compose(Schedule.recurs(config.maxRetries)),
-        config.jitter ? Schedule.jittered : Schedule.identity
-      );
-  };
+  private readonly createExponentialBackoffSchedule = (
+    config: RetryConfig
+  ): Schedule.Schedule<number> =>
+    Schedule.exponential(config.baseDelayMs, config.backoffMultiplier).pipe(
+      Schedule.upTo(Schedule.duration(config.maxDelayMs)),
+      Schedule.compose(Schedule.recurs(config.maxRetries)),
+      config.jitter ? Schedule.jittered : Schedule.identity
+    );
 
   // Execute an operation with retry logic
   executeWithRetry = <A, E extends MEXCApiError | TradingError>(
@@ -65,22 +65,28 @@ export class RetryService {
       const startTime = Date.now();
       let attempts = 0;
 
-      yield* TradingLogger.logInfo(`Starting retry operation: ${operationName}`, {
-        maxRetries: config.maxRetries,
-        baseDelayMs: config.baseDelayMs,
-      });
+      yield* TradingLogger.logInfo(
+        `Starting retry operation: ${operationName}`,
+        {
+          maxRetries: config.maxRetries,
+          baseDelayMs: config.baseDelayMs,
+        }
+      );
 
       const schedule = this.createExponentialBackoffSchedule(config);
 
       const result = yield* Effect.retry(operation, schedule).pipe(
-        Effect.tapError((error) => 
+        Effect.tapError((error) =>
           Effect.gen(function* () {
             attempts += 1;
-            yield* TradingLogger.logWarn(`Retry attempt ${attempts} failed for ${operationName}`, {
-              error: error.message,
-              code: error.code,
-              attempt: attempts,
-            });
+            yield* TradingLogger.logWarn(
+              `Retry attempt ${attempts} failed for ${operationName}`,
+              {
+                error: error.message,
+                code: error.code,
+                attempt: attempts,
+              }
+            );
           })
         ),
         Effect.both
@@ -91,8 +97,11 @@ export class RetryService {
       if (result._tag === "Left") {
         // Operation failed after all retries
         attempts = config.maxRetries + 1;
-        
-        yield* TradingLogger.logError(`Operation ${operationName} failed after ${attempts} attempts`, result.left as Error);
+
+        yield* TradingLogger.logError(
+          `Operation ${operationName} failed after ${attempts} attempts`,
+          result.left as Error
+        );
 
         return {
           success: false,
@@ -100,21 +109,23 @@ export class RetryService {
           attempts,
           totalDurationMs,
         } as RetryResult<A>;
-      } else {
-        // Operation succeeded
-        attempts = result.right._tag === "Some" ? 1 : 1; // Will be calculated properly in real implementation
-        
-        yield* TradingLogger.logInfo(`Operation ${operationName} succeeded after ${attempts} attempts`, {
-          totalDurationMs,
-        });
-
-        return {
-          success: true,
-          result: result.right.value,
-          attempts,
-          totalDurationMs,
-        } as RetryResult<A>;
       }
+      // Operation succeeded
+      attempts = result.right._tag === "Some" ? 1 : 1; // Will be calculated properly in real implementation
+
+      yield* TradingLogger.logInfo(
+        `Operation ${operationName} succeeded after ${attempts} attempts`,
+        {
+          totalDurationMs,
+        }
+      );
+
+      return {
+        success: true,
+        result: result.right.value,
+        attempts,
+        totalDurationMs,
+      } as RetryResult<A>;
     });
   };
 
@@ -123,13 +134,13 @@ export class RetryService {
     operation: Effect.Effect<A, E>,
     operationName: string,
     config: RetryConfig = DEFAULT_RETRY_CONFIG,
-    failureThreshold: number = 5,
-    recoveryTimeoutMs: number = 60_000
+    _failureThreshold = 5,
+    recoveryTimeoutMs = 60_000
   ): Effect.Effect<RetryResult<A>, E> => {
     return Effect.gen(function* () {
       // Simple circuit breaker implementation
       // In a production system, you'd want a more sophisticated circuit breaker
-      const failures = 0;
+      const _failures = 0;
       const lastFailureTime = 0;
       const state: "CLOSED" | "OPEN" | "HALF_OPEN" = "CLOSED";
 
@@ -167,19 +178,24 @@ export class RetryService {
       const startTime = Date.now();
       let attempts = 0;
 
-      yield* TradingLogger.logInfo(`Starting selective retry operation: ${operationName}`);
+      yield* TradingLogger.logInfo(
+        `Starting selective retry operation: ${operationName}`
+      );
 
       for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
         attempts = attempt + 1;
 
         try {
           const result = yield* operation;
-          
+
           const totalDurationMs = Date.now() - startTime;
-          
-          yield* TradingLogger.logInfo(`Selective retry operation ${operationName} succeeded on attempt ${attempts}`, {
-            totalDurationMs,
-          });
+
+          yield* TradingLogger.logInfo(
+            `Selective retry operation ${operationName} succeeded on attempt ${attempts}`,
+            {
+              totalDurationMs,
+            }
+          );
 
           return {
             success: true,
@@ -189,11 +205,14 @@ export class RetryService {
           } as RetryResult<A>;
         } catch (error) {
           const typedError = error as E;
-          
+
           if (attempt === config.maxRetries || !shouldRetry(typedError)) {
             const totalDurationMs = Date.now() - startTime;
-            
-            yield* TradingLogger.logError(`Selective retry operation ${operationName} failed after ${attempts} attempts`, typedError as Error);
+
+            yield* TradingLogger.logError(
+              `Selective retry operation ${operationName} failed after ${attempts} attempts`,
+              typedError as Error
+            );
 
             return {
               success: false,
@@ -205,19 +224,22 @@ export class RetryService {
 
           // Calculate delay for next attempt
           const delay = Math.min(
-            config.baseDelayMs * Math.pow(config.backoffMultiplier, attempt),
+            config.baseDelayMs * config.backoffMultiplier ** attempt,
             config.maxDelayMs
           );
 
-          const jitteredDelay = config.jitter 
+          const jitteredDelay = config.jitter
             ? delay * (0.5 + Math.random() * 0.5)
             : delay;
 
-          yield* TradingLogger.logWarn(`Selective retry attempt ${attempts} failed for ${operationName}, retrying in ${jitteredDelay}ms`, {
-            error: typedError.message,
-            code: typedError.code,
-            nextDelay: jitteredDelay,
-          });
+          yield* TradingLogger.logWarn(
+            `Selective retry attempt ${attempts} failed for ${operationName}, retrying in ${jitteredDelay}ms`,
+            {
+              error: typedError.message,
+              code: typedError.code,
+              nextDelay: jitteredDelay,
+            }
+          );
 
           // Wait before retrying
           yield* Effect.sleep(jitteredDelay);
@@ -240,29 +262,31 @@ export class RetryService {
       name: string;
       config?: RetryConfig;
     }>
-  ): Effect.Effect<Array<RetryResult<A>>, never> => {
-    return Effect.gen(function* () {
-      yield* TradingLogger.logInfo(`Starting batch retry operations`, {
+  ): Effect.Effect<RetryResult<A>[], never> =>
+    Effect.gen(function* () {
+      yield* TradingLogger.logInfo("Starting batch retry operations", {
         operationCount: operations.length,
       });
 
       const results = yield* Effect.all(
         operations.map(({ operation, name, config }) =>
           this.executeWithRetry(operation, name, config).pipe(
-            Effect.catchAll((error) => Effect.succeed({
-              success: false,
-              error,
-              attempts: 0,
-              totalDurationMs: 0,
-            } as RetryResult<A>))
+            Effect.catchAll((error) =>
+              Effect.succeed({
+                success: false,
+                error,
+                attempts: 0,
+                totalDurationMs: 0,
+              } as RetryResult<A>)
+            )
           )
         )
       );
 
-      const successCount = results.filter(r => r.success).length;
+      const successCount = results.filter((r) => r.success).length;
       const failureCount = results.length - successCount;
 
-      yield* TradingLogger.logInfo(`Batch retry operations completed`, {
+      yield* TradingLogger.logInfo("Batch retry operations completed", {
         total: results.length,
         successCount,
         failureCount,
@@ -270,24 +294,27 @@ export class RetryService {
 
       return results;
     });
-  };
 
   // Get retry statistics
-  getRetryStatistics = (results: Array<RetryResult<unknown>>) => {
-    const successful = results.filter(r => r.success);
-    const failed = results.filter(r => !r.success);
+  getRetryStatistics = (results: RetryResult<unknown>[]) => {
+    const successful = results.filter((r) => r.success);
+    const failed = results.filter((r) => !r.success);
 
     return {
       total: results.length,
       successful: successful.length,
       failed: failed.length,
-      successRate: results.length > 0 ? (successful.length / results.length) * 100 : 0,
-      averageAttempts: results.length > 0 
-        ? results.reduce((sum, r) => sum + r.attempts, 0) / results.length 
-        : 0,
-      averageDuration: results.length > 0
-        ? results.reduce((sum, r) => sum + r.totalDurationMs, 0) / results.length
-        : 0,
+      successRate:
+        results.length > 0 ? (successful.length / results.length) * 100 : 0,
+      averageAttempts:
+        results.length > 0
+          ? results.reduce((sum, r) => sum + r.attempts, 0) / results.length
+          : 0,
+      averageDuration:
+        results.length > 0
+          ? results.reduce((sum, r) => sum + r.totalDurationMs, 0) /
+            results.length
+          : 0,
       totalDuration: results.reduce((sum, r) => sum + r.totalDurationMs, 0),
     };
   };
@@ -301,17 +328,15 @@ export const retryMEXCOperation = <A>(
   operation: Effect.Effect<A, MEXCApiError>,
   operationName: string,
   config: RetryConfig = DEFAULT_RETRY_CONFIG
-): Effect.Effect<RetryResult<A>, MEXCApiError> => {
-  return retryService.executeWithRetry(operation, operationName, config);
-};
+): Effect.Effect<RetryResult<A>, MEXCApiError> =>
+  retryService.executeWithRetry(operation, operationName, config);
 
 export const retryTradingOperation = <A>(
   operation: Effect.Effect<A, TradingError>,
   operationName: string,
   config: RetryConfig = DEFAULT_RETRY_CONFIG
-): Effect.Effect<RetryResult<A>, TradingError> => {
-  return retryService.executeWithRetry(operation, operationName, config);
-};
+): Effect.Effect<RetryResult<A>, TradingError> =>
+  retryService.executeWithRetry(operation, operationName, config);
 
 // Error type predicates for selective retry
 export const shouldRetryMEXCError = (error: MEXCApiError): boolean => {
@@ -326,9 +351,11 @@ export const shouldRetryMEXCError = (error: MEXCApiError): boolean => {
     "API_ERROR_504", // Gateway timeout
   ];
 
-  return retryableCodes.includes(error.code) || 
-         (error.statusCode >= 500 && error.statusCode < 600) ||
-         error.statusCode === 429;
+  return (
+    retryableCodes.includes(error.code) ||
+    (error.statusCode >= 500 && error.statusCode < 600) ||
+    error.statusCode === 429
+  );
 };
 
 export const shouldRetryTradingError = (error: TradingError): boolean => {

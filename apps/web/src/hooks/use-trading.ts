@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 // Import types from backend (these would normally come from a shared types package)
@@ -65,12 +65,15 @@ type BotStatus = {
 
 type SystemHealth = {
   status: "healthy" | "degraded" | "unhealthy";
-  components: Record<string, {
-    status: "operational" | "degraded" | "down";
-    message?: string;
-    responseTime?: number;
-    lastChecked: string;
-  }>;
+  components: Record<
+    string,
+    {
+      status: "operational" | "degraded" | "down";
+      message?: string;
+      responseTime?: number;
+      lastChecked: string;
+    }
+  >;
   issues: Array<{
     type: "performance" | "connectivity" | "resource";
     severity: "low" | "medium" | "high" | "critical";
@@ -110,8 +113,10 @@ const API_BASE = "/api/trading";
 export const tradingKeys = {
   all: ["trading"] as const,
   stats: () => [...tradingKeys.all, "stats"] as const,
-  history: (filters?: TradeLogFilters) => [...tradingKeys.all, "history", filters] as const,
-  listings: (filters?: TradeLogFilters) => [...tradingKeys.all, "listings", filters] as const,
+  history: (filters?: TradeLogFilters) =>
+    [...tradingKeys.all, "history", filters] as const,
+  listings: (filters?: TradeLogFilters) =>
+    [...tradingKeys.all, "listings", filters] as const,
   botStatus: () => [...tradingKeys.all, "botStatus"] as const,
   systemHealth: () => [...tradingKeys.all, "systemHealth"] as const,
 };
@@ -127,7 +132,9 @@ const apiFetch = async <T>(url: string, options?: RequestInit): Promise<T> => {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Unknown error" }));
+    const error = await response
+      .json()
+      .catch(() => ({ message: "Unknown error" }));
     throw new Error(error.message || `API Error: ${response.status}`);
   }
 
@@ -151,15 +158,22 @@ export const useTradeHistory = (filters?: {
   status?: "SUCCESS" | "FAILED" | "PENDING";
 }) => {
   const params = new URLSearchParams();
-  if (filters?.limit) params.append("limit", filters.limit.toString());
-  if (filters?.symbol) params.append("symbol", filters.symbol);
-  if (filters?.status) params.append("status", filters.status);
+  if (filters?.limit) {
+    params.append("limit", filters.limit.toString());
+  }
+  if (filters?.symbol) {
+    params.append("symbol", filters.symbol);
+  }
+  if (filters?.status) {
+    params.append("status", filters.status);
+  }
 
   return useQuery({
     queryKey: tradingKeys.history(filters),
-    queryFn: () => apiFetch<{ trades: TradeHistoryItem[]; total: number }>(
-      `${API_BASE}/history?${params.toString()}`
-    ),
+    queryFn: () =>
+      apiFetch<{ trades: TradeHistoryItem[]; total: number }>(
+        `${API_BASE}/history?${params.toString()}`
+      ),
     refetchInterval: 15_000, // 15 seconds
     staleTime: 30_000, // 30 seconds
   });
@@ -171,18 +185,23 @@ export const useRecentListings = (filters?: {
   symbol?: string;
 }) => {
   const params = new URLSearchParams();
-  if (filters?.hours) params.append("hours", filters.hours.toString());
-  if (filters?.symbol) params.append("symbol", filters.symbol);
+  if (filters?.hours) {
+    params.append("hours", filters.hours.toString());
+  }
+  if (filters?.symbol) {
+    params.append("symbol", filters.symbol);
+  }
 
   return useQuery({
     queryKey: tradingKeys.listings(filters),
-    queryFn: () => apiFetch<{ 
-      listings: ListingEvent[]; 
-      total: number;
-      timeRange: string;
-    }>(`${API_BASE}/recent-listings?${params.toString()}`),
-    refetchInterval: 15000, // Refetch every 15 seconds
-    staleTime: 10000,
+    queryFn: () =>
+      apiFetch<{
+        listings: ListingEvent[];
+        total: number;
+        timeRange: string;
+      }>(`${API_BASE}/recent-listings?${params.toString()}`),
+    refetchInterval: 15_000, // Refetch every 15 seconds
+    staleTime: 10_000,
   });
 };
 
@@ -201,7 +220,7 @@ export const useSystemHealth = () => {
   return useQuery({
     queryKey: tradingKeys.systemHealth(),
     queryFn: () => apiFetch<SystemHealth>("/api/monitoring/system-status"),
-    refetchInterval: 10000, // Refetch every 10 seconds
+    refetchInterval: 10_000, // Refetch every 10 seconds
     staleTime: 5000,
   });
 };
@@ -283,8 +302,13 @@ export const useRealTimeTradingData = () => {
     history: history.data?.trades || [],
     botStatus: botStatus.data,
     systemHealth: systemHealth.data,
-    isLoading: stats.isLoading || history.isLoading || botStatus.isLoading || systemHealth.isLoading,
-    error: stats.error || history.error || botStatus.error || systemHealth.error,
+    isLoading:
+      stats.isLoading ||
+      history.isLoading ||
+      botStatus.isLoading ||
+      systemHealth.isLoading,
+    error:
+      stats.error || history.error || botStatus.error || systemHealth.error,
     refetch: () => {
       stats.refetch();
       history.refetch();
@@ -295,12 +319,15 @@ export const useRealTimeTradingData = () => {
 };
 
 // Hook for trading metrics (aggregated data)
-export const useTradingMetrics = (timeRange: "1h" | "6h" | "24h" | "7d" = "24h") => {
+export const useTradingMetrics = (
+  timeRange: "1h" | "6h" | "24h" | "7d" = "24h"
+) => {
   return useQuery({
     queryKey: [...tradingKeys.all, "metrics", timeRange],
-    queryFn: () => apiFetch(`/api/monitoring/performance-metrics?timeRange=${timeRange}`),
-    refetchInterval: 30000, // Refetch every 30 seconds
-    staleTime: 15000,
+    queryFn: () =>
+      apiFetch(`/api/monitoring/performance-metrics?timeRange=${timeRange}`),
+    refetchInterval: 30_000, // Refetch every 30 seconds
+    staleTime: 15_000,
   });
 };
 
@@ -309,19 +336,23 @@ export const useDetectorStats = () => {
   return useQuery({
     queryKey: [...tradingKeys.all, "detectorStats"],
     queryFn: () => apiFetch(`${API_BASE}/detector-stats`),
-    refetchInterval: 20000, // Refetch every 20 seconds
-    staleTime: 10000,
+    refetchInterval: 20_000, // Refetch every 20 seconds
+    staleTime: 10_000,
   });
 };
 
 // Utility functions for formatting data
 export const formatTradeValue = (trade: TradeHistoryItem): string => {
-  if (trade.status !== "SUCCESS") return "Failed";
+  if (trade.status !== "SUCCESS") {
+    return "Failed";
+  }
   return `$${trade.value.toFixed(2)}`;
 };
 
 export const formatExecutionTime = (ms: number): string => {
-  if (ms < 1000) return `${ms}ms`;
+  if (ms < 1000) {
+    return `${ms}ms`;
+  }
   return `${(ms / 1000).toFixed(2)}s`;
 };
 
@@ -331,19 +362,27 @@ export const formatTimeAgo = (dateString: string): string => {
   const diff = now.getTime() - date.getTime();
 
   const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 60) {
+    return `${seconds}s ago`;
+  }
 
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
 
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
 
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
 };
 
-export const getTradeStatusColor = (status: string): "default" | "destructive" | "secondary" => {
+export const getTradeStatusColor = (
+  status: string
+): "default" | "destructive" | "secondary" | "outline" => {
   switch (status) {
     case "SUCCESS":
       return "default";
@@ -365,7 +404,7 @@ export const useTradingPolling = <T>(
     enabled?: boolean;
   }
 ) => {
-  const { interval = 5_000, enabled = true } = options || {};
+  const { interval = 5000, enabled = true } = options || {};
 
   return useQuery({
     queryKey,

@@ -1,23 +1,59 @@
-import { router, protectedProcedure } from "./index";
+import type { TradingConfiguration as TradingConfigType } from "@mexc-sniperbot-ai/db";
+import { db, tradingConfiguration } from "@mexc-sniperbot-ai/db";
+import { desc, eq } from "drizzle-orm";
 import { Effect } from "effect";
 import { z } from "zod";
-import { db } from "@mexc-sniperbot-ai/db";
-import { eq, desc } from "drizzle-orm";
-import { tradingConfiguration } from "@mexc-sniperbot-ai/db";
 import { ConfigurationError, TradingLogger } from "../lib/effect";
-import type { TradingConfiguration as TradingConfigType } from "@mexc-sniperbot-ai/db";
+import { publicProcedure, router } from "./index";
 
 // Zod schemas for validation
 const tradingConfigurationSchema = z.object({
   symbol: z.string().min(1, "Symbol is required"),
-  enabledPairs: z.array(z.string()).min(1, "At least one enabled pair is required"),
-  maxPurchaseAmount: z.number().positive("Max purchase amount must be positive"),
-  priceTolerance: z.number().min(0, "Price tolerance must be non-negative").max(100, "Price tolerance cannot exceed 100%"),
-  dailySpendingLimit: z.number().positive("Daily spending limit must be positive"),
+  enabledPairs: z
+    .array(z.string())
+    .min(1, "At least one enabled pair is required"),
+  maxPurchaseAmount: z
+    .number()
+    .positive("Max purchase amount must be positive"),
+  priceTolerance: z
+    .number()
+    .min(0, "Price tolerance must be non-negative")
+    .max(100, "Price tolerance cannot exceed 100%"),
+  dailySpendingLimit: z
+    .number()
+    .positive("Daily spending limit must be positive"),
   maxTradesPerHour: z.number().positive("Max trades per hour must be positive"),
   pollingInterval: z.number().positive("Polling interval must be positive"),
   orderTimeout: z.number().positive("Order timeout must be positive"),
   isActive: z.boolean(),
+  profitTargetPercent: z
+    .number()
+    .min(1, "Profit target must be greater than 0")
+    .max(9_999, "Profit target cannot exceed 99.99%")
+    .optional(),
+  stopLossPercent: z
+    .number()
+    .min(1, "Stop loss must be greater than 0")
+    .max(9_999, "Stop loss cannot exceed 99.99%")
+    .optional(),
+  timeBasedExitMinutes: z
+    .number()
+    .positive("Time-based exit must be positive")
+    .optional(),
+  trailingStopPercent: z
+    .number()
+    .min(1, "Trailing stop must be greater than 0")
+    .max(9_999, "Trailing stop cannot exceed 99.99%")
+    .optional(),
+  sellStrategy: z
+    .enum([
+      "PROFIT_TARGET",
+      "STOP_LOSS",
+      "TIME_BASED",
+      "TRAILING_STOP",
+      "COMBINED",
+    ])
+    .optional(),
 });
 
 const updateConfigurationSchema = tradingConfigurationSchema.partial().extend({
@@ -34,29 +70,49 @@ const configurationQuerySchema = z.object({
 // Configuration router
 export const configurationRouter = router({
   // Get all trading configurations
-  getConfigurations: protectedProcedure
+  getConfigurations: publicProcedure
     .input(configurationQuerySchema)
     .query(async ({ input }) => {
-      return Effect.runPromise(
-        Effect.gen(function* () {
-          yield* TradingLogger.logInfo("Fetching trading configurations", input);
+      if (!process.env.DATABASE_URL) {
+        await Effect.runPromise(
+          TradingLogger.logWarning(
+            "DATABASE_URL not set. Returning empty trading configuration list.",
+            null
+          )
+        );
+        return [];
+      }
+
+      try {
+        return await Effect.runPromise(
+          Effect.gen(function* () {
+          yield* TradingLogger.logInfo(
+            "Fetching trading configurations",
+            input
+          );
 
           const configurations = yield* Effect.tryPromise({
-            try: () => {
+            try: async () => {
               let query = db.select().from(tradingConfiguration);
-              
+
               // Apply filters
               if (input.symbol) {
-                query = query.where(eq(tradingConfiguration.symbol, input.symbol));
+                query = query.where(
+                  eq(tradingConfiguration.symbol, input.symbol)
+                );
               }
               if (input.isActive !== undefined) {
-                query = query.where(eq(tradingConfiguration.isActive, input.isActive));
+                query = query.where(
+                  eq(tradingConfiguration.isActive, input.isActive)
+                );
               }
-              
-              return query
+
+              const result = await query
                 .orderBy(desc(tradingConfiguration.updatedAt))
                 .limit(input.limit)
                 .offset(input.offset);
+              
+              return result ?? [];
             },
             catch: (error) => {
               throw new ConfigurationError({
@@ -67,29 +123,60 @@ export const configurationRouter = router({
             },
           });
 
-          yield* TradingLogger.logInfo(`Fetched ${configurations.length} configurations`);
+          const configsArray = Array.isArray(configurations) ? configurations : [];
 
-          return configurations.map(config => ({
+          yield* TradingLogger.logInfo(
+            `Fetched ${configsArray.length} configurations`
+          );
+
+          return configsArray.map((config) => ({
             ...config,
-            enabledPairs: Array.isArray(config.enabledPairs) ? config.enabledPairs : [],
+            enabledPairs: Array.isArray(config.enabledPairs)
+              ? config.enabledPairs
+              : [],
           }));
-        })
-      );
+          })
+        );
+      } catch (error) {
+        await Effect.runPromise(
+          TradingLogger.logWarning(
+            "Falling back to empty trading configuration list",
+            { error: error instanceof Error ? error.message : String(error) }
+          )
+        );
+
+        return [];
+      }
     }),
 
   // Get configuration by ID
-  getConfigurationById: protectedProcedure
+  getConfigurationById: publicProcedure
     .input(z.object({ id: z.string().min(1, "ID is required") }))
     .query(async ({ input }) => {
-      return Effect.runPromise(
-        Effect.gen(function* () {
-          yield* TradingLogger.logInfo("Fetching configuration by ID", { id: input.id });
+      if (!process.env.DATABASE_URL) {
+        await Effect.runPromise(
+          TradingLogger.logWarning(
+            "DATABASE_URL not set. Returning null configuration response.",
+            null
+          )
+        );
+        return null;
+      }
+
+      try {
+        return await Effect.runPromise(
+          Effect.gen(function* () {
+          yield* TradingLogger.logInfo("Fetching configuration by ID", {
+            id: input.id,
+          });
 
           const configurations = yield* Effect.tryPromise({
-            try: () => db.select()
-              .from(tradingConfiguration)
-              .where(eq(tradingConfiguration.id, input.id))
-              .limit(1),
+            try: () =>
+              db
+                .select()
+                .from(tradingConfiguration)
+                .where(eq(tradingConfiguration.id, input.id))
+                .limit(1),
             catch: (error) => {
               throw new ConfigurationError({
                 message: `Failed to fetch configuration: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -108,34 +195,51 @@ export const configurationRouter = router({
           }
 
           const config = configurations[0];
-          
-          yield* TradingLogger.logInfo("Configuration fetched successfully", { 
-            id: config.id, 
-            symbol: config.symbol 
+
+          yield* TradingLogger.logInfo("Configuration fetched successfully", {
+            id: config.id,
+            symbol: config.symbol,
           });
 
           return {
             ...config,
-            enabledPairs: Array.isArray(config.enabledPairs) ? config.enabledPairs : [],
+            enabledPairs: Array.isArray(config.enabledPairs)
+              ? config.enabledPairs
+              : [],
           };
-        })
-      );
+          })
+        );
+      } catch (error) {
+        await Effect.runPromise(
+          TradingLogger.logWarning(
+            "Falling back to null configuration response",
+            { error: error instanceof Error ? error.message : String(error) }
+          )
+        );
+
+        return null;
+      }
     }),
 
   // Create new trading configuration
-  createConfiguration: protectedProcedure
+  createConfiguration: publicProcedure
     .input(tradingConfigurationSchema)
     .mutation(async ({ input }) => {
       return Effect.runPromise(
         Effect.gen(function* () {
-          yield* TradingLogger.logInfo("Creating new trading configuration", input);
+          yield* TradingLogger.logInfo(
+            "Creating new trading configuration",
+            input
+          );
 
           // Check if configuration for this symbol already exists
           const existingConfigs = yield* Effect.tryPromise({
-            try: () => db.select()
-              .from(tradingConfiguration)
-              .where(eq(tradingConfiguration.symbol, input.symbol))
-              .limit(1),
+            try: () =>
+              db
+                .select()
+                .from(tradingConfiguration)
+                .where(eq(tradingConfiguration.symbol, input.symbol))
+                .limit(1),
             catch: (error) => {
               throw new ConfigurationError({
                 message: `Failed to check existing configuration: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -158,12 +262,16 @@ export const configurationRouter = router({
 
           // Create new configuration
           const newConfig = yield* Effect.tryPromise({
-            try: () => db.insert(tradingConfiguration).values({
-              id: `config_${input.symbol}_${Date.now()}`,
-              ...input,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            }).returning(),
+            try: () =>
+              db
+                .insert(tradingConfiguration)
+                .values({
+                  id: `config_${input.symbol}_${Date.now()}`,
+                  ...input,
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                })
+                .returning(),
             catch: (error) => {
               throw new ConfigurationError({
                 message: `Failed to create configuration: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -182,28 +290,35 @@ export const configurationRouter = router({
 
           return {
             ...createdConfig,
-            enabledPairs: Array.isArray(createdConfig.enabledPairs) ? createdConfig.enabledPairs : [],
+            enabledPairs: Array.isArray(createdConfig.enabledPairs)
+              ? createdConfig.enabledPairs
+              : [],
           };
         })
       );
     }),
 
   // Update existing configuration
-  updateConfiguration: protectedProcedure
+  updateConfiguration: publicProcedure
     .input(updateConfigurationSchema)
     .mutation(async ({ input }) => {
       return Effect.runPromise(
         Effect.gen(function* () {
           const { id, ...updateData } = input;
-          
-          yield* TradingLogger.logInfo("Updating trading configuration", { id, updateData });
+
+          yield* TradingLogger.logInfo("Updating trading configuration", {
+            id,
+            updateData,
+          });
 
           // Check if configuration exists
           const existingConfigs = yield* Effect.tryPromise({
-            try: () => db.select()
-              .from(tradingConfiguration)
-              .where(eq(tradingConfiguration.id, id))
-              .limit(1),
+            try: () =>
+              db
+                .select()
+                .from(tradingConfiguration)
+                .where(eq(tradingConfiguration.id, id))
+                .limit(1),
             catch: (error) => {
               throw new ConfigurationError({
                 message: `Failed to fetch configuration for update: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -226,19 +341,22 @@ export const configurationRouter = router({
             yield* validateConfigurationValues({
               ...existingConfigs[0],
               ...updateData,
-              enabledPairs: updateData.enabledPairs ?? existingConfigs[0].enabledPairs,
+              enabledPairs:
+                updateData.enabledPairs ?? existingConfigs[0].enabledPairs,
             });
           }
 
           // Update configuration
           const updatedConfigs = yield* Effect.tryPromise({
-            try: () => db.update(tradingConfiguration)
-              .set({
-                ...updateData,
-                updatedAt: new Date(),
-              })
-              .where(eq(tradingConfiguration.id, id))
-              .returning(),
+            try: () =>
+              db
+                .update(tradingConfiguration)
+                .set({
+                  ...updateData,
+                  updatedAt: new Date(),
+                })
+                .where(eq(tradingConfiguration.id, id))
+                .returning(),
             catch: (error) => {
               throw new ConfigurationError({
                 message: `Failed to update configuration: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -257,26 +375,32 @@ export const configurationRouter = router({
 
           return {
             ...updatedConfig,
-            enabledPairs: Array.isArray(updatedConfig.enabledPairs) ? updatedConfig.enabledPairs : [],
+            enabledPairs: Array.isArray(updatedConfig.enabledPairs)
+              ? updatedConfig.enabledPairs
+              : [],
           };
         })
       );
     }),
 
   // Delete configuration
-  deleteConfiguration: protectedProcedure
+  deleteConfiguration: publicProcedure
     .input(z.object({ id: z.string().min(1, "ID is required") }))
     .mutation(async ({ input }) => {
       return Effect.runPromise(
         Effect.gen(function* () {
-          yield* TradingLogger.logInfo("Deleting trading configuration", { id: input.id });
+          yield* TradingLogger.logInfo("Deleting trading configuration", {
+            id: input.id,
+          });
 
           // Check if configuration exists
           const existingConfigs = yield* Effect.tryPromise({
-            try: () => db.select()
-              .from(tradingConfiguration)
-              .where(eq(tradingConfiguration.id, input.id))
-              .limit(1),
+            try: () =>
+              db
+                .select()
+                .from(tradingConfiguration)
+                .where(eq(tradingConfiguration.id, input.id))
+                .limit(1),
             catch: (error) => {
               throw new ConfigurationError({
                 message: `Failed to fetch configuration for deletion: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -296,8 +420,10 @@ export const configurationRouter = router({
 
           // Delete configuration
           yield* Effect.tryPromise({
-            try: () => db.delete(tradingConfiguration)
-              .where(eq(tradingConfiguration.id, input.id)),
+            try: () =>
+              db
+                .delete(tradingConfiguration)
+                .where(eq(tradingConfiguration.id, input.id)),
             catch: (error) => {
               throw new ConfigurationError({
                 message: `Failed to delete configuration: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -318,11 +444,13 @@ export const configurationRouter = router({
     }),
 
   // Activate/deactivate configuration
-  toggleConfiguration: protectedProcedure
-    .input(z.object({ 
-      id: z.string().min(1, "ID is required"),
-      isActive: z.boolean(),
-    }))
+  toggleConfiguration: publicProcedure
+    .input(
+      z.object({
+        id: z.string().min(1, "ID is required"),
+        isActive: z.boolean(),
+      })
+    )
     .mutation(async ({ input }) => {
       return Effect.runPromise(
         Effect.gen(function* () {
@@ -330,10 +458,12 @@ export const configurationRouter = router({
 
           // Check if configuration exists
           const existingConfigs = yield* Effect.tryPromise({
-            try: () => db.select()
-              .from(tradingConfiguration)
-              .where(eq(tradingConfiguration.id, input.id))
-              .limit(1),
+            try: () =>
+              db
+                .select()
+                .from(tradingConfiguration)
+                .where(eq(tradingConfiguration.id, input.id))
+                .limit(1),
             catch: (error) => {
               throw new ConfigurationError({
                 message: `Failed to fetch configuration for toggle: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -353,13 +483,15 @@ export const configurationRouter = router({
 
           // Update configuration status
           const updatedConfigs = yield* Effect.tryPromise({
-            try: () => db.update(tradingConfiguration)
-              .set({
-                isActive: input.isActive,
-                updatedAt: new Date(),
-              })
-              .where(eq(tradingConfiguration.id, input.id))
-              .returning(),
+            try: () =>
+              db
+                .update(tradingConfiguration)
+                .set({
+                  isActive: input.isActive,
+                  updatedAt: new Date(),
+                })
+                .where(eq(tradingConfiguration.id, input.id))
+                .returning(),
             catch: (error) => {
               throw new ConfigurationError({
                 message: `Failed to toggle configuration: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -371,79 +503,101 @@ export const configurationRouter = router({
 
           const updatedConfig = updatedConfigs[0];
 
-          yield* TradingLogger.logInfo("Configuration status toggled successfully", {
-            id: updatedConfig.id,
-            symbol: updatedConfig.symbol,
-            isActive: updatedConfig.isActive,
-          });
+          yield* TradingLogger.logInfo(
+            "Configuration status toggled successfully",
+            {
+              id: updatedConfig.id,
+              symbol: updatedConfig.symbol,
+              isActive: updatedConfig.isActive,
+            }
+          );
 
           return {
             ...updatedConfig,
-            enabledPairs: Array.isArray(updatedConfig.enabledPairs) ? updatedConfig.enabledPairs : [],
+            enabledPairs: Array.isArray(updatedConfig.enabledPairs)
+              ? updatedConfig.enabledPairs
+              : [],
           };
         })
       );
     }),
 
   // Get configuration statistics
-  getConfigurationStats: protectedProcedure
-    .query(async () => {
-      return Effect.runPromise(
-        Effect.gen(function* () {
-          yield* TradingLogger.logInfo("Fetching configuration statistics");
+  getConfigurationStats: publicProcedure.query(async () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        yield* TradingLogger.logInfo("Fetching configuration statistics");
 
-          const allConfigs = yield* Effect.tryPromise({
-            try: () => db.select().from(tradingConfiguration),
-            catch: (error) => {
-              throw new ConfigurationError({
-                message: `Failed to fetch configurations for statistics: ${error instanceof Error ? error.message : "Unknown error"}`,
-                field: "database",
-                timestamp: new Date(),
-              });
-            },
-          });
+        const allConfigs = yield* Effect.tryPromise({
+          try: () => db.select().from(tradingConfiguration),
+          catch: (error) => {
+            throw new ConfigurationError({
+              message: `Failed to fetch configurations for statistics: ${error instanceof Error ? error.message : "Unknown error"}`,
+              field: "database",
+              timestamp: new Date(),
+            });
+          },
+        });
 
-          const activeConfigs = allConfigs.filter(config => config.isActive);
-          const inactiveConfigs = allConfigs.filter(config => !config.isActive);
+        const activeConfigs = allConfigs.filter((config) => config.isActive);
+        const inactiveConfigs = allConfigs.filter((config) => !config.isActive);
 
-          const stats = {
-            total: allConfigs.length,
-            active: activeConfigs.length,
-            inactive: inactiveConfigs.length,
-            totalDailyLimit: allConfigs.reduce((sum, config) => sum + config.dailySpendingLimit, 0),
-            activeDailyLimit: activeConfigs.reduce((sum, config) => sum + config.dailySpendingLimit, 0),
-            averageMaxPurchaseAmount: allConfigs.length > 0 
-              ? allConfigs.reduce((sum, config) => sum + config.maxPurchaseAmount, 0) / allConfigs.length 
+        const stats = {
+          total: allConfigs.length,
+          active: activeConfigs.length,
+          inactive: inactiveConfigs.length,
+          totalDailyLimit: allConfigs.reduce(
+            (sum, config) => sum + config.dailySpendingLimit,
+            0
+          ),
+          activeDailyLimit: activeConfigs.reduce(
+            (sum, config) => sum + config.dailySpendingLimit,
+            0
+          ),
+          averageMaxPurchaseAmount:
+            allConfigs.length > 0
+              ? allConfigs.reduce(
+                  (sum, config) => sum + config.maxPurchaseAmount,
+                  0
+                ) / allConfigs.length
               : 0,
-            averageMaxTradesPerHour: allConfigs.length > 0
-              ? allConfigs.reduce((sum, config) => sum + config.maxTradesPerHour, 0) / allConfigs.length
+          averageMaxTradesPerHour:
+            allConfigs.length > 0
+              ? allConfigs.reduce(
+                  (sum, config) => sum + config.maxTradesPerHour,
+                  0
+                ) / allConfigs.length
               : 0,
-          };
+        };
 
-          yield* TradingLogger.logInfo("Configuration statistics fetched", stats);
+        yield* TradingLogger.logInfo("Configuration statistics fetched", stats);
 
-          return stats;
-        })
-      );
-    }),
+        return stats;
+      })
+    )
+  ),
 });
 
 // Helper function to validate configuration values
-const validateConfigurationValues = (config: Partial<TradingConfigType>): Effect.Effect<void, ConfigurationError> => {
+const validateConfigurationValues = (
+  config: Partial<TradingConfigType>
+): Effect.Effect<void, ConfigurationError> => {
   return Effect.sync(() => {
     // Validate daily spending limit vs max purchase amount
-    if (config.maxPurchaseAmount && config.dailySpendingLimit) {
-      if (config.maxPurchaseAmount > config.dailySpendingLimit) {
-        throw new ConfigurationError({
-          message: "Max purchase amount cannot exceed daily spending limit",
-          field: "maxPurchaseAmount",
-          timestamp: new Date(),
-        });
-      }
+    if (
+      config.maxPurchaseAmount &&
+      config.dailySpendingLimit &&
+      config.maxPurchaseAmount > config.dailySpendingLimit
+    ) {
+      throw new ConfigurationError({
+        message: "Max purchase amount cannot exceed daily spending limit",
+        field: "maxPurchaseAmount",
+        timestamp: new Date(),
+      });
     }
 
     // Validate polling interval (should be reasonable)
-    if (config.pollingInterval && config.pollingInterval < 1_000) {
+    if (config.pollingInterval && config.pollingInterval < 1000) {
       throw new ConfigurationError({
         message: "Polling interval must be at least 1000ms (1 second)",
         field: "pollingInterval",
@@ -460,7 +614,7 @@ const validateConfigurationValues = (config: Partial<TradingConfigType>): Effect
     }
 
     // Validate order timeout
-    if (config.orderTimeout && config.orderTimeout < 5_000) {
+    if (config.orderTimeout && config.orderTimeout < 5000) {
       throw new ConfigurationError({
         message: "Order timeout must be at least 5000ms (5 seconds)",
         field: "orderTimeout",

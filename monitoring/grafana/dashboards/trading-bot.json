@@ -1,0 +1,60 @@
+{
+  "dashboard": {
+    "title": "MEXC Trading Bot Dashboard",
+    "panels": [
+      {
+        "title": "Order Execution Latency (P50, P95, P99)",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, order_execution_latency_ms_bucket)",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, order_execution_latency_ms_bucket)",
+            "legendFormat": "P95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, order_execution_latency_ms_bucket)",
+            "legendFormat": "P99"
+          }
+        ]
+      },
+      {
+        "title": "Trade Success Rate",
+        "targets": [
+          {
+            "expr": "rate(trades_total{status=\"success\"}[5m]) / rate(trades_total[5m])",
+            "legendFormat": "Success Rate"
+          }
+        ]
+      },
+      {
+        "title": "API Error Rate",
+        "targets": [
+          {
+            "expr": "rate(api_errors_total[5m])",
+            "legendFormat": "Error Rate"
+          }
+        ]
+      },
+      {
+        "title": "Portfolio Value",
+        "targets": [
+          {
+            "expr": "portfolio_value_usd",
+            "legendFormat": "Portfolio Value (USD)"
+          }
+        ]
+      },
+      {
+        "title": "Circuit Breaker State",
+        "targets": [
+          {
+            "expr": "circuit_breaker_state",
+            "legendFormat": "{{breaker_name}}"
+          }
+        ]
+      }
+    ]
+  }
+}

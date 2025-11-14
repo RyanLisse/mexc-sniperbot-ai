@@ -1,2 +1,6 @@
 [install]
 linker = "isolated"
+
+[test]
+timeout = 30000  # 30 second timeout for all tests (performance tests need more time)
+preload = ["./packages/api/src/__tests__/setup.ts"]

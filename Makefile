@@ -1,4 +1,4 @@
-.PHONY: test-all test-unit test-integration test-performance test-contract test-security test-websocket test-browser test-coverage clean-test
+.PHONY: test-all test-unit test-integration test-performance test-contract test-security test-websocket test-browser test-coverage clean-test test-db-start test-db-stop test-db-reset test-db-logs
 
 # Comprehensive test suite - all tests must pass 100%
 test-all: test-unit test-integration test-performance test-contract test-security test-websocket test-browser
@@ -78,3 +78,26 @@ build:
 # Full CI pipeline - build + test + quality
 ci: build test-all test-coverage
 	@echo "✅ CI pipeline completed successfully!"
+
+# Database management for tests
+test-db-start:
+	@echo "🚀 Starting test database..."
+	@./scripts/init-test-db.sh
+
+test-db-stop:
+	@echo "🛑 Stopping test database..."
+	@docker-compose -f docker-compose.test.yml down
+
+test-db-reset:
+	@echo "🔄 Resetting test database..."
+	@./scripts/cleanup-test-db.sh --full
+	@./scripts/init-test-db.sh
+
+test-db-logs:
+	@echo "📋 Test database logs..."
+	@docker-compose -f docker-compose.test.yml logs -f test-db
+
+# Test database status
+test-db-status:
+	@echo "📊 Test database status..."
+	@docker-compose -f docker-compose.test.yml ps

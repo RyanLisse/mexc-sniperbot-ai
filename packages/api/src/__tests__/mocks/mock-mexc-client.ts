@@ -3,9 +3,6 @@
  * Simulates MEXC API without making real external calls
  */
 
-import { Effect } from "effect";
-import type { MEXCApiError } from "../../errors/mexc-error";
-
 export interface MockOrder {
   symbol: string;
   orderId: string;
@@ -86,56 +83,49 @@ export class MockMEXCClient {
   async placeMarketBuyOrder(
     symbol: string,
     quantity: string
-  ): Promise<Effect.Effect<MockOrder, MEXCApiError>> {
-    return Effect.try({
-      try: async () => {
-        await this.delay();
-        this.checkFailure();
+  ): Promise<MockOrder> {
+    await this.delay();
+    this.checkFailure();
 
-        const orderId = `${this.orderIdCounter++}`;
-        const price = this.prices.get(symbol) || "0";
-        const qty = quantity;
+    const orderId = `${this.orderIdCounter}`;
+    this.orderIdCounter += 1;
+    const price = this.prices.get(symbol) || "0";
+    const qty = quantity;
 
-        const order: MockOrder = {
-          symbol,
-          orderId,
-          transactTime: Date.now(),
-          price,
-          origQty: qty,
-          executedQty: qty,
-          status: "FILLED",
-          type: "MARKET",
-          side: "BUY",
-        };
+    const order: MockOrder = {
+      symbol,
+      orderId,
+      transactTime: Date.now(),
+      price,
+      origQty: qty,
+      executedQty: qty,
+      status: "FILLED",
+      type: "MARKET",
+      side: "BUY",
+    };
 
-        this.orders.set(orderId, order);
+    this.orders.set(orderId, order);
 
-        // Update balances
-        const [base, quote] = symbol.replace("USDT", " USDT").split(" ");
-        const cost = Number.parseFloat(price) * Number.parseFloat(qty);
+    // Update balances
+    const [base, quote] = symbol.replace("USDT", " USDT").split(" ");
+    const cost = Number.parseFloat(price) * Number.parseFloat(qty);
 
-        const quoteBalance = this.balances.get(quote);
-        if (quoteBalance) {
-          const newFree = Number.parseFloat(quoteBalance.free) - cost;
-          quoteBalance.free = newFree.toString();
-        }
+    const quoteBalance = this.balances.get(quote);
+    if (quoteBalance) {
+      const newFree = Number.parseFloat(quoteBalance.free) - cost;
+      quoteBalance.free = newFree.toString();
+    }
 
-        const baseBalance = this.balances.get(base) || {
-          asset: base,
-          free: "0",
-          locked: "0",
-        };
-        const newQty =
-          Number.parseFloat(baseBalance.free) + Number.parseFloat(qty);
-        baseBalance.free = newQty.toString();
-        this.balances.set(base, baseBalance);
+    const baseBalance = this.balances.get(base) || {
+      asset: base,
+      free: "0",
+      locked: "0",
+    };
+    const newQty = Number.parseFloat(baseBalance.free) + Number.parseFloat(qty);
+    baseBalance.free = newQty.toString();
+    this.balances.set(base, baseBalance);
 
-        return order;
-      },
-      catch: (error) => {
-        throw error;
-      },
-    });
+    return order;
   }
 
   /**
@@ -146,72 +136,50 @@ export class MockMEXCClient {
     side: "BUY" | "SELL",
     quantity: string,
     price: string
-  ): Promise<Effect.Effect<MockOrder, MEXCApiError>> {
-    return Effect.try({
-      try: async () => {
-        await this.delay();
-        this.checkFailure();
+  ): Promise<MockOrder> {
+    await this.delay();
+    this.checkFailure();
 
-        const orderId = `${this.orderIdCounter++}`;
+    const orderId = `${this.orderIdCounter}`;
+    this.orderIdCounter += 1;
 
-        const order: MockOrder = {
-          symbol,
-          orderId,
-          transactTime: Date.now(),
-          price,
-          origQty: quantity,
-          executedQty: "0", // Limit orders start unfilled
-          status: "NEW",
-          type: "LIMIT",
-          side,
-        };
+    const order: MockOrder = {
+      symbol,
+      orderId,
+      transactTime: Date.now(),
+      price,
+      origQty: quantity,
+      executedQty: "0", // Limit orders start unfilled
+      status: "NEW",
+      type: "LIMIT",
+      side,
+    };
 
-        this.orders.set(orderId, order);
-        return order;
-      },
-      catch: (error) => {
-        throw error;
-      },
-    });
+    this.orders.set(orderId, order);
+    return order;
   }
 
   /**
    * Get order status
    */
   async getOrderStatus(
-    symbol: string,
+    _symbol: string,
     orderId: string
-  ): Promise<Effect.Effect<MockOrder | null, MEXCApiError>> {
-    return Effect.try({
-      try: async () => {
-        await this.delay();
-        this.checkFailure();
+  ): Promise<MockOrder | null> {
+    await this.delay();
+    this.checkFailure();
 
-        return this.orders.get(orderId) || null;
-      },
-      catch: (error) => {
-        throw error;
-      },
-    });
+    return this.orders.get(orderId) || null;
   }
 
   /**
    * Get account balances
    */
-  async getAccountBalances(): Promise<
-    Effect.Effect<MockBalance[], MEXCApiError>
-  > {
-    return Effect.try({
-      try: async () => {
-        await this.delay();
-        this.checkFailure();
+  async getAccountBalances(): Promise<MockBalance[]> {
+    await this.delay();
+    this.checkFailure();
 
-        return Array.from(this.balances.values());
-      },
-      catch: (error) => {
-        throw error;
-      },
-    });
+    return Array.from(this.balances.values());
   }
 
   /**
@@ -219,45 +187,28 @@ export class MockMEXCClient {
    */
   async getTickerPrice(
     symbol: string
-  ): Promise<Effect.Effect<{ symbol: string; price: string }, MEXCApiError>> {
-    return Effect.try({
-      try: async () => {
-        await this.delay();
-        this.checkFailure();
+  ): Promise<{ symbol: string; price: string }> {
+    await this.delay();
+    this.checkFailure();
 
-        const price = this.prices.get(symbol) || "0";
-        return { symbol, price };
-      },
-      catch: (error) => {
-        throw error;
-      },
-    });
+    const price = this.prices.get(symbol) || "0";
+    return { symbol, price };
   }
 
   /**
    * Cancel an order
    */
-  async cancelOrder(
-    symbol: string,
-    orderId: string
-  ): Promise<Effect.Effect<MockOrder, MEXCApiError>> {
-    return Effect.try({
-      try: async () => {
-        await this.delay();
-        this.checkFailure();
+  async cancelOrder(_symbol: string, orderId: string): Promise<MockOrder> {
+    await this.delay();
+    this.checkFailure();
 
-        const order = this.orders.get(orderId);
-        if (!order) {
-          throw new Error(`Order ${orderId} not found`);
-        }
+    const order = this.orders.get(orderId);
+    if (!order) {
+      throw new Error(`Order ${orderId} not found`);
+    }
 
-        order.status = "CANCELED";
-        return order;
-      },
-      catch: (error) => {
-        throw error;
-      },
-    });
+    order.status = "CANCELED";
+    return order;
   }
 
   /**

@@ -1,8 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { db } from "@mexc-sniperbot-ai/db";
+import { listingEvent, tradeAttempt } from "@mexc-sniperbot-ai/db/src/schema";
 import { eq } from "drizzle-orm";
-import { db } from "../../packages/db/src/index";
-import { listingEvent } from "../../packages/db/src/schema/listing-events";
-import { tradeAttempt } from "../../packages/db/src/schema/trade-attempts";
 
 /**
  * Integration Tests for Trade Execution Flow
@@ -23,7 +22,7 @@ describe("Trade Execution Integration Tests", () => {
 
   beforeAll(async () => {
     // Create a test listing event
-    testListingId = `test-listing-${Date.now()}`;
+    testListingId = randomUUID();
 
     await db.insert(listingEvent).values({
       id: testListingId,
@@ -50,7 +49,7 @@ describe("Trade Execution Integration Tests", () => {
 
   describe("Trade Attempt Creation", () => {
     test("should create trade attempt from listing event", async () => {
-      testTradeId = `trade-${Date.now()}`;
+      testTradeId = crypto.randomUUID();
 
       const tradeData = {
         id: testTradeId,

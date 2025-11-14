@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { db, tradingConfiguration } from "@mexc-sniperbot-ai/db";
+import { randomUUID } from "crypto";
 import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 import { riskManager } from "../../services/risk-manager";
@@ -16,7 +17,7 @@ describe("Trade Executor - Integration Tests", () => {
     mockExchange.setBalance("USDT", 10_000);
 
     // Create test trading configuration
-    testConfigId = `test-config-${Date.now()}`;
+    testConfigId = randomUUID();
     await db.insert(tradingConfiguration).values({
       id: testConfigId,
       symbol: "BTCUSDT",

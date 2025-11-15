@@ -1,7 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { randomUUID } from "node:crypto";
 import { eq, like, lt } from "drizzle-orm";
 import { db } from "../../packages/db/src/index";
 import { listingEvent } from "../../packages/db/src/schema/listing-events";
+
+const SYMBOL_REGEX = /^[A-Z0-9]+$/;
 
 /**
  * Integration Tests for Listing Detection Flow
@@ -17,7 +20,7 @@ import { listingEvent } from "../../packages/db/src/schema/listing-events";
  */
 
 describe("Listing Detection Integration Tests", () => {
-  const testListingId = `test-listing-${Date.now()}`;
+  const testListingId = randomUUID();
 
   beforeAll(async () => {
     // Clean up any existing test data
@@ -112,7 +115,7 @@ describe("Listing Detection Integration Tests", () => {
 
       expect(updated[0].initialPrice).toBe("1.23456789");
       expect(updated[0].currentPrice).toBe("1.25000000");
-      expect(updated[0].priceChange24h).toBe("1.25");
+      expect(updated[0].priceChange24h).toBe("1.2500");
     });
   });
 
@@ -138,7 +141,7 @@ describe("Listing Detection Integration Tests", () => {
       const startTime = performance.now();
 
       const newListing = {
-        id: `perf-test-${Date.now()}`,
+        id: randomUUID(),
         symbol: "PERFUSDT",
         exchangeName: "MEXC",
         listingTime: new Date(),
@@ -170,7 +173,7 @@ describe("Listing Detection Integration Tests", () => {
         .limit(1);
 
       if (listing.length > 0) {
-        expect(listing[0].symbol).toMatch(/^[A-Z0-9]+$/);
+        expect(listing[0].symbol).toMatch(SYMBOL_REGEX);
         expect(listing[0].symbol.length).toBeGreaterThan(3);
       }
     });
@@ -208,7 +211,7 @@ describe("Listing Detection Integration Tests", () => {
     test("should identify expired listings", async () => {
       // Create an expired listing
       const expiredListing = {
-        id: `expired-${Date.now()}`,
+        id: randomUUID(),
         symbol: "EXPIREDUSDT",
         exchangeName: "MEXC",
         listingTime: new Date(Date.now() - 48 * 60 * 60 * 1000), // 48 hours ago
@@ -262,7 +265,7 @@ describe("Listing Detection Integration Tests", () => {
     test("should handle multiple simultaneous listings", async () => {
       const listingsToCreate = 5;
       const listings = Array.from({ length: listingsToCreate }, (_, i) => ({
-        id: `concurrent-${Date.now()}-${i}`,
+        id: randomUUID(),
         symbol: `COIN${i}USDT`,
         exchangeName: "MEXC",
         listingTime: new Date(),
@@ -307,7 +310,7 @@ describe("Listing Detection Integration Tests", () => {
   describe("Error Handling", () => {
     test("should handle duplicate listing detection gracefully", async () => {
       const duplicateListing = {
-        id: `duplicate-${Date.now()}`,
+        id: randomUUID(),
         symbol: "DUPUSDT",
         exchangeName: "MEXC",
         listingTime: new Date(),

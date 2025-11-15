@@ -92,6 +92,39 @@ export class OrderValidator {
     });
   };
 
+  validatePrice = (
+    symbol: string,
+    price: number
+  ): Effect.Effect<{ isValid: boolean; errors: string[] }, TradingError> =>
+    Effect.gen(function* () {
+      yield* exchangeRulesCache.loadRules();
+
+      const rules = exchangeRulesCache.getRules(symbol);
+      if (!rules) {
+        throw new TradingError({
+          message: `No validation rules found for symbol: ${symbol}`,
+          code: "NO_RULES_FOUND",
+          timestamp: new Date(),
+        });
+      }
+
+      const errors: string[] = [];
+
+      if (rules.tickSize > 0) {
+        const remainder = price % rules.tickSize;
+        if (remainder > Number.EPSILON) {
+          errors.push(
+            `Price ${price} must be a multiple of tick size ${rules.tickSize}`
+          );
+        }
+      }
+
+      return {
+        isValid: errors.length === 0,
+        errors,
+      };
+    });
+
   /**
    * Validate order with detailed error messages
    */

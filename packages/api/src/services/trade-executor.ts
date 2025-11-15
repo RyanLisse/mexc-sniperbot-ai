@@ -1,7 +1,7 @@
 import type { TradingConfiguration as TradingConfigType } from "@mexc-sniperbot-ai/db";
 import { db, tradeAttempt, tradingConfiguration } from "@mexc-sniperbot-ai/db";
 import { and, desc, eq } from "drizzle-orm";
-import { Context, Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { MEXCApiError, TradingError, TradingLogger } from "../lib/effect";
 import { accountService } from "./account-service";
 import { type MEXCOrderResponse, mexcClient } from "./mexc-client";
@@ -9,19 +9,18 @@ import { orderValidator } from "./order-validator";
 import { positionTracker } from "./position-tracker";
 import { riskManager } from "./risk-manager";
 
-// Service interface for dependency injection
+// Service interface
 export type TradeExecutorService = {
   executeTrade: (
     symbol: string,
     strategy?: TradeStrategy
-  ) => Effect.Effect<TradeResult, TradeError | MEXCApiError>;
+  ) => Effect.Effect<TradeResult, TradingError | MEXCApiError>;
   executeSellTrade: (
     symbol: string,
     quantity: string,
     strategy?: TradeStrategy,
-    sellReason?: string,
-    parentTradeId?: string
-  ) => Effect.Effect<TradeResult, TradeError | MEXCApiError>;
+    options?: { sellReason?: string; parentTradeId?: string }
+  ) => Effect.Effect<TradeResult, TradingError | MEXCApiError>;
   getOrderStatus: (
     orderId: string,
     symbol: string
@@ -34,11 +33,6 @@ export type TradeExecutorService = {
     limit?: number
   ) => Effect.Effect<TradeHistoryItem[], MEXCApiError>;
 };
-
-// Service tag
-export const TradeExecutorService = Context.Tag<TradeExecutorService>(
-  "TradeExecutorService"
-);
 
 // Trade strategy types
 export type TradeStrategy = "MARKET" | "LIMIT";
@@ -84,28 +78,29 @@ export class TradeExecutor implements TradeExecutorService {
   executeTrade = (
     symbol: string,
     strategy: TradeStrategy = "MARKET"
-  ): Effect.Effect<TradeResult, TradeError | MEXCApiError> => {
+  ): Effect.Effect<TradeResult, TradingError | MEXCApiError> => {
+    const self = this;
     return Effect.gen(function* () {
       const startTime = Date.now();
 
-      yield* TradingLogger.logTradeStarted(
-        `trade_${symbol}_${startTime}`,
+      yield* TradingLogger.logInfo("Trade started", {
+        tradeId: `trade_${symbol}_${startTime}`,
         symbol,
-        "PENDING"
-      );
+        status: "PENDING",
+      });
 
       try {
         // Get trading configuration for this symbol
-        const config = yield* this.getTradingConfiguration(symbol);
+        const config = yield* self.getTradingConfiguration(symbol);
 
         // Validate trade parameters (includes risk checks)
-        yield* this.validateTradeParameters(symbol, config, strategy);
+        yield* self.validateTradeParameters(symbol, config, strategy);
 
         // Calculate trade quantity
-        const quantity = yield* this.calculateTradeQuantity(symbol, config);
+        const quantity = yield* self.calculateTradeQuantity(symbol, config);
 
         // Execute the trade based on strategy
-        const orderResult = yield* this.executeOrderStrategy(
+        const orderResult = yield* self.executeOrderStrategy(
           symbol,
           quantity,
           strategy
@@ -125,7 +120,7 @@ export class TradeExecutor implements TradeExecutorService {
         };
 
         // Save successful trade attempt
-        yield* this.saveTradeAttempt({
+        yield* self.saveTradeAttempt({
           id: `trade_${symbol}_${startTime}`,
           symbol,
           status: "SUCCESS",
@@ -147,10 +142,12 @@ export class TradeExecutor implements TradeExecutorService {
           },
         });
 
-        yield* TradingLogger.logTradeCompleted(
-          `trade_${symbol}_${startTime}`,
-          result
-        );
+        yield* TradingLogger.logInfo("Trade completed", {
+          tradeId: `trade_${symbol}_${startTime}`,
+          symbol,
+          strategy,
+          executionTime,
+        });
 
         // Record trade for risk management (PnL tracking)
         // For buy orders, PnL is 0 initially (will be calculated on sell)
@@ -179,10 +176,7 @@ export class TradeExecutor implements TradeExecutorService {
           },
         });
 
-        yield* TradingLogger.logTradeFailed(
-          `trade_${symbol}_${startTime}`,
-          error as Error
-        );
+        yield* TradingLogger.logError("Trade failed", error as Error);
 
         return {
           success: false,
@@ -196,14 +190,16 @@ export class TradeExecutor implements TradeExecutorService {
     });
   };
 
-  // Execute a sell trade
+  // Execute a sell trade (delegates to helpers to keep complexity low)
   executeSellTrade = (
     symbol: string,
     quantity: string,
     strategy: TradeStrategy = "MARKET",
-    sellReason?: string,
-    parentTradeId?: string
+    options?: { sellReason?: string; parentTradeId?: string }
   ): Effect.Effect<TradeResult, TradingError | MEXCApiError> => {
+    const { sellReason, parentTradeId } = options ?? {};
+    const self = this;
+
     return Effect.gen(function* () {
       const startTime = Date.now();
 
@@ -214,101 +210,38 @@ export class TradeExecutor implements TradeExecutorService {
       });
 
       try {
-        // Verify position exists
-        const position = yield* positionTracker.getPosition(symbol);
-        if (!position) {
-          throw new TradingError({
-            message: `No open position found for ${symbol}`,
-            code: "NO_POSITION",
-            timestamp: new Date(),
-          });
-        }
+        const { position, sellQuantity, positionQuantity } =
+          yield* self.loadAndValidateSellPosition(symbol, quantity);
 
-        // Validate quantity doesn't exceed position
-        const positionQuantity = position.quantity;
-        const sellQuantity = Number.parseFloat(quantity);
-        if (sellQuantity > positionQuantity) {
-          throw new TradingError({
-            message: `Insufficient quantity: requested ${sellQuantity}, available ${positionQuantity}`,
-            code: "INSUFFICIENT_QUANTITY",
-            timestamp: new Date(),
-          });
-        }
-
-        // Execute the sell order based on strategy
-        const orderResult = yield* this.executeSellOrderStrategy(
+        const orderResult = yield* self.executeSellOrderStrategy(
           symbol,
           quantity,
           strategy
         );
 
-        const executionTime = Date.now() - startTime;
+        const { result, realizedPnL, executedQuantity } =
+          self.buildSellExecutionResult(
+            symbol,
+            strategy,
+            quantity,
+            position,
+            orderResult,
+            sellQuantity,
+            startTime
+          );
 
-        // Calculate realized PnL
-        const entryPrice = position.entryPrice;
-        const executedPrice = orderResult.executedPrice
-          ? Number.parseFloat(orderResult.executedPrice)
-          : 0;
-        const executedQuantity = orderResult.executedQuantity
-          ? Number.parseFloat(orderResult.executedQuantity)
-          : sellQuantity;
-        const realizedPnL = (executedPrice - entryPrice) * executedQuantity;
-
-        const result: TradeResult = {
-          success: true,
-          orderId: orderResult.orderId,
+        yield* self.persistSuccessfulSellTrade(
+          self.saveTradeAttempt,
           symbol,
-          strategy,
-          quantity,
-          executedPrice: orderResult.executedPrice,
-          executedQuantity: orderResult.executedQuantity,
-          executionTime,
-        };
-
-        // Generate positionId for linking buy/sell pairs
-        const positionId = parentTradeId || position.tradeAttemptId;
-
-        // Save successful sell trade attempt
-        yield* this.saveTradeAttempt({
-          id: `sell_${symbol}_${startTime}`,
-          symbol,
-          status: "SUCCESS",
-          strategy,
-          quantity,
-          executedPrice: orderResult.executedPrice,
-          executedQuantity: orderResult.executedQuantity,
-          createdAt: new Date(startTime),
-          completedAt: new Date(),
-          executionTime,
-          parentTradeId: parentTradeId || position.tradeAttemptId,
-          positionId,
-          sellReason: sellReason || "MANUAL",
-          metadata: {
-            orderId: orderResult.orderId,
-            price: orderResult.executedPrice,
-            originalQuantity: quantity,
-            realizedPnL,
-            entryPrice: position.entryPrice,
-          },
-        });
-
-        // Remove position from tracker (or update if partial sell)
-        if (executedQuantity >= positionQuantity) {
-          yield* positionTracker.removePosition(symbol);
-        } else {
-          // Partial sell - update position quantity
-          yield* positionTracker.updatePosition(symbol, {
-            quantity: positionQuantity - executedQuantity,
-          });
-        }
-
-        // Record realized PnL for risk management
-        riskManager.recordTrade(realizedPnL);
-
-        yield* TradingLogger.logInfo(`Sell trade completed for ${symbol}`, {
-          orderId: result.orderId,
+          startTime,
+          position,
+          parentTradeId,
+          sellReason,
+          result,
           realizedPnL,
-        });
+          executedQuantity,
+          positionQuantity
+        );
 
         return result;
       } catch (error) {
@@ -316,23 +249,16 @@ export class TradeExecutor implements TradeExecutorService {
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
 
-        // Save failed sell trade attempt
-        yield* this.saveTradeAttempt({
-          id: `sell_${symbol}_${startTime}`,
+        yield* self.persistFailedSellTrade(
+          self.saveTradeAttempt,
           symbol,
-          status: "FAILED",
           strategy,
-          quantity: "0",
-          createdAt: new Date(startTime),
-          completedAt: new Date(),
+          startTime,
           executionTime,
-          error: errorMessage,
+          errorMessage,
           parentTradeId,
-          sellReason: sellReason || "MANUAL",
-          metadata: {
-            error: errorMessage,
-          },
-        });
+          sellReason
+        );
 
         throw error instanceof TradingError || error instanceof MEXCApiError
           ? error
@@ -344,6 +270,188 @@ export class TradeExecutor implements TradeExecutorService {
       }
     });
   };
+
+  private readonly loadAndValidateSellPosition = (
+    symbol: string,
+    quantity: string
+  ): Effect.Effect<
+    { position: any; sellQuantity: number; positionQuantity: number },
+    TradingError
+  > =>
+    Effect.gen(function* () {
+      const position = yield* positionTracker.getPosition(symbol);
+      if (!position) {
+        throw new TradingError({
+          message: `No open position found for ${symbol}`,
+          code: "NO_POSITION",
+          timestamp: new Date(),
+        });
+      }
+
+      const positionQuantity = position.quantity;
+      const sellQuantity = Number.parseFloat(quantity);
+
+      if (sellQuantity > positionQuantity) {
+        throw new TradingError({
+          message: `Insufficient quantity: requested ${sellQuantity}, available ${positionQuantity}`,
+          code: "INSUFFICIENT_QUANTITY",
+          timestamp: new Date(),
+        });
+      }
+
+      return { position, sellQuantity, positionQuantity };
+    });
+
+  private readonly buildSellExecutionResult = (
+    symbol: string,
+    strategy: TradeStrategy,
+    quantity: string,
+    position: any,
+    orderResult: MEXCOrderResponse,
+    sellQuantity: number,
+    startTime: number
+  ): {
+    result: TradeResult;
+    realizedPnL: number;
+    executedQuantity: number;
+  } => {
+    const executionTime = Date.now() - startTime;
+    const entryPrice = position.entryPrice;
+    const executedPrice = orderResult.executedPrice
+      ? Number.parseFloat(orderResult.executedPrice)
+      : 0;
+    const executedQuantity = orderResult.executedQuantity
+      ? Number.parseFloat(orderResult.executedQuantity)
+      : sellQuantity;
+    const realizedPnL = (executedPrice - entryPrice) * executedQuantity;
+
+    return {
+      result: {
+        success: true,
+        orderId: orderResult.orderId,
+        symbol,
+        strategy,
+        quantity,
+        executedPrice: orderResult.executedPrice,
+        executedQuantity: orderResult.executedQuantity,
+        executionTime,
+      },
+      realizedPnL,
+      executedQuantity,
+    };
+  };
+
+  private readonly persistSuccessfulSellTrade = (
+    saveTradeAttempt: (tradeData: {
+      id: string;
+      symbol: string;
+      status: string;
+      strategy: TradeStrategy;
+      quantity: string;
+      executedPrice?: string;
+      executedQuantity?: string;
+      createdAt: Date;
+      completedAt?: Date;
+      executionTime: number;
+      error?: string;
+      parentTradeId?: string;
+      positionId?: string;
+      sellReason?: string;
+      metadata?: Record<string, unknown>;
+    }) => Effect.Effect<void, MEXCApiError>,
+    symbol: string,
+    startTime: number,
+    position: any,
+    parentTradeId: string | undefined,
+    sellReason: string | undefined,
+    result: TradeResult,
+    realizedPnL: number,
+    executedQuantity: number,
+    positionQuantity: number
+  ): Effect.Effect<void, TradingError | MEXCApiError> =>
+    Effect.gen(function* () {
+      const positionId = parentTradeId || position.tradeAttemptId;
+
+      yield* saveTradeAttempt({
+        id: `sell_${symbol}_${startTime}`,
+        symbol,
+        status: "SUCCESS",
+        strategy: result.strategy,
+        quantity: result.quantity,
+        executedPrice: result.executedPrice,
+        executedQuantity: result.executedQuantity,
+        createdAt: new Date(startTime),
+        completedAt: new Date(),
+        executionTime: result.executionTime,
+        parentTradeId: parentTradeId || position.tradeAttemptId,
+        positionId,
+        sellReason: sellReason || "MANUAL",
+        metadata: {
+          orderId: result.orderId,
+          price: result.executedPrice,
+          originalQuantity: result.quantity,
+          realizedPnL,
+          entryPrice: position.entryPrice,
+        },
+      });
+
+      if (executedQuantity >= positionQuantity) {
+        yield* positionTracker.removePosition(symbol);
+      } else {
+        yield* positionTracker.updatePosition(symbol, {
+          quantity: positionQuantity - executedQuantity,
+        });
+      }
+
+      riskManager.recordTrade(realizedPnL);
+
+      yield* TradingLogger.logInfo(`Sell trade completed for ${symbol}`, {
+        orderId: result.orderId,
+        realizedPnL,
+      });
+    });
+
+  private readonly persistFailedSellTrade = (
+    saveTradeAttempt: (tradeData: {
+      id: string;
+      symbol: string;
+      status: string;
+      strategy: TradeStrategy;
+      quantity: string;
+      createdAt: Date;
+      completedAt?: Date;
+      executionTime: number;
+      error?: string;
+      parentTradeId?: string;
+      sellReason?: string;
+      metadata?: Record<string, unknown>;
+    }) => Effect.Effect<void, MEXCApiError>,
+    symbol: string,
+    strategy: TradeStrategy,
+    startTime: number,
+    executionTime: number,
+    errorMessage: string,
+    parentTradeId: string | undefined,
+    sellReason: string | undefined
+  ): Effect.Effect<void, MEXCApiError> =>
+    Effect.gen(function* () {
+      yield* saveTradeAttempt({
+        id: `sell_${symbol}_${startTime}`,
+        symbol,
+        status: "FAILED",
+        strategy,
+        quantity: "0",
+        createdAt: new Date(startTime),
+        completedAt: new Date(),
+        executionTime,
+        error: errorMessage,
+        parentTradeId,
+        sellReason: sellReason || "MANUAL",
+        metadata: {
+          error: errorMessage,
+        },
+      });
+    });
 
   // Execute sell order based on strategy
   private readonly executeSellOrderStrategy = (
@@ -462,13 +570,7 @@ export class TradeExecutor implements TradeExecutorService {
           db
             .select()
             .from(tradingConfiguration)
-            .where(
-              and(
-                eq(tradingConfiguration.isActive, true),
-                eq(tradingConfiguration.symbol, symbol)
-              )
-            )
-            .limit(1),
+            .where(eq(tradingConfiguration.isActive, true)),
         catch: (error) => {
           throw new TradingError({
             message: `Failed to fetch trading configuration: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -478,7 +580,9 @@ export class TradeExecutor implements TradeExecutorService {
         },
       });
 
-      if (configs.length === 0) {
+      const config = configs.find((c) => c.enabledPairs.includes(symbol));
+
+      if (!config) {
         throw new TradingError({
           message: `No active trading configuration found for symbol: ${symbol}`,
           code: "NO_CONFIGURATION_FOUND",
@@ -486,7 +590,7 @@ export class TradeExecutor implements TradeExecutorService {
         });
       }
 
-      return configs[0];
+      return config;
     });
 
   // Validate trade parameters
@@ -495,6 +599,7 @@ export class TradeExecutor implements TradeExecutorService {
     config: TradingConfigType,
     strategy: TradeStrategy
   ): Effect.Effect<void, TradingError> => {
+    const self = this;
     return Effect.gen(function* () {
       // Check if symbol is enabled
       if (!config.enabledPairs.includes(symbol)) {
@@ -506,7 +611,7 @@ export class TradeExecutor implements TradeExecutorService {
       }
 
       // Check daily spending limit
-      const todaySpent = yield* this.getTodaySpentAmount();
+      const todaySpent = yield* self.getTodaySpentAmount();
       if (todaySpent >= config.dailySpendingLimit) {
         throw new TradingError({
           message: `Daily spending limit reached: ${todaySpent}/${config.dailySpendingLimit}`,
@@ -516,7 +621,7 @@ export class TradeExecutor implements TradeExecutorService {
       }
 
       // Check hourly trade limit
-      const hourlyTrades = yield* this.getHourlyTradeCount();
+      const hourlyTrades = yield* self.getHourlyTradeCount();
       if (hourlyTrades >= config.maxTradesPerHour) {
         throw new TradingError({
           message: `Hourly trade limit reached: ${hourlyTrades}/${config.maxTradesPerHour}`,
@@ -539,7 +644,19 @@ export class TradeExecutor implements TradeExecutorService {
       const quantityNum = Number.parseFloat(quantity);
 
       // Get current price for validation
-      const ticker = yield* mexcClient.getTicker(symbol);
+      const ticker = yield* mexcClient.getTicker(symbol).pipe(
+        Effect.catchAll((error) =>
+          Effect.fail(
+            new TradingError({
+              message: `Failed to fetch price for validation: ${
+                error instanceof Error ? error.message : "Unknown error"
+              }`,
+              code: "PRICE_FETCH_FAILED",
+              timestamp: new Date(),
+            })
+          )
+        )
+      );
       const price = Number.parseFloat(ticker.price);
 
       // Validate order parameters
@@ -558,6 +675,13 @@ export class TradeExecutor implements TradeExecutorService {
 
       // Risk management validation (position size and daily loss limits)
       const accountInfo = yield* accountService.getAccountInfo();
+      if (!accountInfo) {
+        throw new TradingError({
+          message: "Account information is unavailable for risk validation",
+          code: "ACCOUNT_INFO_UNAVAILABLE",
+          timestamp: new Date(),
+        });
+      }
       const portfolioValue = accountInfo.totalUsdValue;
       const dailyPnL = riskManager.getDailyPnL();
 
@@ -585,15 +709,16 @@ export class TradeExecutor implements TradeExecutorService {
 
   // Calculate trade quantity based on configuration
   private readonly calculateTradeQuantity = (
-    _symbol: string,
+    symbol: string,
     config: TradingConfigType
   ): Effect.Effect<string, TradingError> => {
     return Effect.gen(function* () {
-      // For simplicity, use a fixed percentage of max purchase amount
-      // In a real implementation, this would consider current price and available balance
-      const tradeAmount = config.maxPurchaseAmount * 0.1; // 10% of max amount
+      // Base micro-trade sizing: small fraction of configured max, capped at $10 notional
+      const baseUsd = config.maxPurchaseAmount * 0.1; // 10% of configured max
+      const microTradeCapUsd = 10; // hard cap per trade in quote currency (USDT)
+      const tradeUsd = Math.min(baseUsd, microTradeCapUsd);
 
-      if (tradeAmount <= 0) {
+      if (tradeUsd <= 0) {
         throw new TradingError({
           message: "Calculated trade amount is too small",
           code: "TRADE_AMOUNT_TOO_SMALL",
@@ -601,7 +726,29 @@ export class TradeExecutor implements TradeExecutorService {
         });
       }
 
-      return tradeAmount.toString();
+      // Convert capped USD amount to base asset quantity using current market price
+      const ticker = yield* mexcClient.getTicker(symbol);
+      const price = Number.parseFloat(ticker.price);
+
+      if (!Number.isFinite(price) || price <= 0) {
+        throw new TradingError({
+          message: `Invalid price for ${symbol}: ${ticker.price}`,
+          code: "INVALID_MARKET_PRICE",
+          timestamp: new Date(),
+        });
+      }
+
+      const quantity = tradeUsd / price;
+
+      if (quantity <= 0) {
+        throw new TradingError({
+          message: "Calculated trade quantity is too small",
+          code: "TRADE_AMOUNT_TOO_SMALL",
+          timestamp: new Date(),
+        });
+      }
+
+      return quantity.toString();
     });
   };
 
@@ -673,12 +820,13 @@ export class TradeExecutor implements TradeExecutorService {
       let configurationId = tradeData.configurationId;
 
       if (tradeData.parentTradeId && !listingEventId) {
+        const parentTradeId = tradeData.parentTradeId;
         const parentTrade = yield* Effect.tryPromise({
           try: () =>
             db
               .select()
               .from(tradeAttempt)
-              .where(eq(tradeAttempt.id, tradeData.parentTradeId!))
+              .where(eq(tradeAttempt.id, parentTradeId))
               .limit(1),
           catch: (error) => {
             throw new MEXCApiError({
@@ -806,12 +954,6 @@ export class TradeExecutor implements TradeExecutorService {
     });
   };
 }
-
-// Create layer for dependency injection
-export const TradeExecutorLive = Layer.succeed(
-  TradeExecutorService,
-  new TradeExecutor()
-);
 
 // Export singleton instance
 export const tradeExecutor = new TradeExecutor();

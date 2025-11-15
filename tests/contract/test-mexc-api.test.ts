@@ -72,8 +72,20 @@ describe("MEXC API Contract Tests", () => {
       };
 
       const result = Effect.runSync(signingService.signRequest(params));
+      const qs = result.queryString;
 
-      expect(result.queryString).toBe("alpha=first&middle=middle&zebra=last");
+      // Core user-provided params must appear in alphabetical order
+      const alphaIndex = qs.indexOf("alpha=first");
+      const middleIndex = qs.indexOf("middle=middle");
+      const zebraIndex = qs.indexOf("zebra=last");
+
+      expect(alphaIndex).toBeGreaterThanOrEqual(0);
+      expect(middleIndex).toBeGreaterThan(alphaIndex);
+      expect(zebraIndex).toBeGreaterThan(middleIndex);
+
+      // Extra signing params should be present as well
+      expect(qs).toContain("recvWindow=5000");
+      expect(qs).toContain("timestamp=");
     });
   });
 

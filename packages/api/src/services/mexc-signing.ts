@@ -2,6 +2,8 @@ import { createHmac } from "node:crypto";
 import { Effect } from "effect";
 import { MEXCApiError } from "../lib/effect";
 
+const VALID_SECRET_KEY_REGEX = /^[a-fA-F0-9]+$/;
+
 // Signing service for MEXC API authentication
 export class MEXCSigningService {
   private readonly secretKey: string;
@@ -53,8 +55,7 @@ export class MEXCSigningService {
         }
 
         // Check for valid characters (hexadecimal for API keys)
-        const validKeyPattern = /^[a-fA-F0-9]+$/;
-        if (!validKeyPattern.test(this.secretKey)) {
+        if (!VALID_SECRET_KEY_REGEX.test(this.secretKey)) {
           throw new MEXCApiError({
             message:
               "Secret key contains invalid characters (expected hexadecimal only)",

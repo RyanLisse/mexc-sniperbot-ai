@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { db } from "@mexc-sniperbot-ai/db";
-import { listingEvent, tradeAttempt } from "@mexc-sniperbot-ai/db/src/schema";
+import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
+import { db, listingEvent, tradeAttempt } from "../../packages/db/src/index";
 
 /**
  * Integration Tests for Trade Execution Flow
@@ -49,12 +49,12 @@ describe("Trade Execution Integration Tests", () => {
 
   describe("Trade Attempt Creation", () => {
     test("should create trade attempt from listing event", async () => {
-      testTradeId = crypto.randomUUID();
+      testTradeId = randomUUID();
 
       const tradeData = {
         id: testTradeId,
         listingEventId: testListingId,
-        configurationId: `config-${Date.now()}`,
+        configurationId: randomUUID(),
         symbol: "TRADEUSDT",
         side: "BUY",
         type: "MARKET",
@@ -111,9 +111,10 @@ describe("Trade Execution Integration Tests", () => {
         .where(eq(tradeAttempt.id, testTradeId))
         .limit(1);
 
+      expect(updated.length).toBe(1);
       expect(updated[0].status).toBe("SUCCESS");
       expect(updated[0].orderId).toBe("mock-order-123");
-      expect(updated[0].executedQuantity).toBe("100");
+      expect(updated[0].executedQuantity).toBe("100.00000000");
       expect(updated[0].completedAt).toBeInstanceOf(Date);
     });
 
@@ -148,12 +149,12 @@ describe("Trade Execution Integration Tests", () => {
 
   describe("Trade Failure Handling", () => {
     test("should handle failed trade execution", async () => {
-      const failedTradeId = `failed-trade-${Date.now()}`;
+      const failedTradeId = randomUUID();
 
       const failedTrade = {
         id: failedTradeId,
         listingEventId: testListingId,
-        configurationId: `config-${Date.now()}`,
+        configurationId: randomUUID(),
         symbol: "TRADEUSDT",
         side: "BUY",
         type: "MARKET",
@@ -184,12 +185,12 @@ describe("Trade Execution Integration Tests", () => {
     });
 
     test("should track retry attempts", async () => {
-      const retryTradeId = `retry-trade-${Date.now()}`;
+      const retryTradeId = randomUUID();
 
       const retryTrade = {
         id: retryTradeId,
         listingEventId: testListingId,
-        configurationId: `config-${Date.now()}`,
+        configurationId: randomUUID(),
         symbol: "TRADEUSDT",
         side: "BUY",
         type: "MARKET",
@@ -223,14 +224,14 @@ describe("Trade Execution Integration Tests", () => {
 
   describe("Trade Performance", () => {
     test("should complete trade execution within 500ms budget", async () => {
-      const perfTradeId = `perf-trade-${Date.now()}`;
+      const perfTradeId = randomUUID();
       const startTime = performance.now();
 
       // Simulate trade creation and execution
       await db.insert(tradeAttempt).values({
         id: perfTradeId,
         listingEventId: testListingId,
-        configurationId: `config-${Date.now()}`,
+        configurationId: randomUUID(),
         symbol: "TRADEUSDT",
         side: "BUY",
         type: "MARKET",
@@ -281,16 +282,16 @@ describe("Trade Execution Integration Tests", () => {
     test("should calculate success rate", async () => {
       // Create multiple trades
       const trades = [
-        { id: `stat-1-${Date.now()}`, status: "SUCCESS" },
-        { id: `stat-2-${Date.now()}`, status: "SUCCESS" },
-        { id: `stat-3-${Date.now()}`, status: "FAILED" },
+        { id: randomUUID(), status: "SUCCESS" },
+        { id: randomUUID(), status: "SUCCESS" },
+        { id: randomUUID(), status: "FAILED" },
       ];
 
       for (const trade of trades) {
         await db.insert(tradeAttempt).values({
           id: trade.id,
           listingEventId: testListingId,
-          configurationId: `config-${Date.now()}`,
+          configurationId: randomUUID(),
           symbol: "STATUSDT",
           side: "BUY",
           type: "MARKET",
@@ -319,17 +320,20 @@ describe("Trade Execution Integration Tests", () => {
     });
 
     test("should calculate total trade volume", async () => {
+      // Clean up any existing volume trades to ensure deterministic results
+      await db.delete(tradeAttempt).where(eq(tradeAttempt.symbol, "VOLUSDT"));
+
       const volumeTrades = [
-        { id: `vol-1-${Date.now()}`, quantity: "100", price: "1.00" },
-        { id: `vol-2-${Date.now()}`, quantity: "200", price: "1.50" },
-        { id: `vol-3-${Date.now()}`, quantity: "150", price: "1.25" },
+        { id: randomUUID(), quantity: "100", price: "1.00" },
+        { id: randomUUID(), quantity: "200", price: "1.50" },
+        { id: randomUUID(), quantity: "150", price: "1.25" },
       ];
 
       for (const trade of volumeTrades) {
         await db.insert(tradeAttempt).values({
           id: trade.id,
           listingEventId: testListingId,
-          configurationId: `config-${Date.now()}`,
+          configurationId: randomUUID(),
           symbol: "VOLUSDT",
           side: "BUY",
           type: "MARKET",
@@ -354,7 +358,7 @@ describe("Trade Execution Integration Tests", () => {
         return sum + qty * price;
       }, 0);
 
-      expect(totalVolume).toBe(487.5); // 100 + 300 + 187.5
+      expect(totalVolume).toBe(587.5); // 100 + 300 + 187.5
 
       // Cleanup
       for (const trade of volumeTrades) {
@@ -376,7 +380,7 @@ describe("Trade Execution Integration Tests", () => {
     });
 
     test("should preserve configuration at trade time", async () => {
-      const snapshotTradeId = `snapshot-trade-${Date.now()}`;
+      const snapshotTradeId = randomUUID();
       const config = {
         strategy: "LIMIT",
         targetPrice: "1.50",
@@ -387,7 +391,7 @@ describe("Trade Execution Integration Tests", () => {
       await db.insert(tradeAttempt).values({
         id: snapshotTradeId,
         listingEventId: testListingId,
-        configurationId: `config-${Date.now()}`,
+        configurationId: randomUUID(),
         symbol: "TRADEUSDT",
         side: "BUY",
         type: "LIMIT",

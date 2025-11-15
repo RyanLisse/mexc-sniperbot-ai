@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db } from "../../packages/db/src/index";
 import { listingEvent } from "../../packages/db/src/schema/listing-events";
@@ -53,7 +54,7 @@ describe("Performance Requirements Tests", () => {
       const timings: number[] = [];
 
       for (let i = 0; i < iterations; i++) {
-        const listingId = `perf-listing-${Date.now()}-${i}`;
+        const listingId = randomUUID();
         const startTime = performance.now();
 
         await db.insert(listingEvent).values({
@@ -93,8 +94,8 @@ describe("Performance Requirements Tests", () => {
       const timings: number[] = [];
 
       for (let i = 0; i < iterations; i++) {
-        const listingId = `perf-listing-${Date.now()}-${i}`;
-        const tradeId = `perf-trade-${Date.now()}-${i}`;
+        const listingId = randomUUID();
+        const tradeId = randomUUID();
 
         const startTime = performance.now();
 
@@ -115,7 +116,7 @@ describe("Performance Requirements Tests", () => {
         await db.insert(tradeAttempt).values({
           id: tradeId,
           listingEventId: listingId,
-          configurationId: `config-${Date.now()}`,
+          configurationId: randomUUID(),
           symbol: `TRADE${i}USDT`,
           side: "BUY",
           type: "MARKET",
@@ -219,7 +220,7 @@ describe("Performance Requirements Tests", () => {
       const timings: number[] = [];
 
       // Create test record
-      const testId = `update-perf-${Date.now()}`;
+      const testId = randomUUID();
       await db.insert(listingEvent).values({
         id: testId,
         symbol: "UPDATEUSDT",
@@ -264,7 +265,7 @@ describe("Performance Requirements Tests", () => {
       const ids: string[] = [];
 
       for (let i = 0; i < iterations; i++) {
-        const id = `insert-perf-${Date.now()}-${i}`;
+        const id = randomUUID();
         ids.push(id);
 
         const startTime = performance.now();
@@ -310,7 +311,7 @@ describe("Performance Requirements Tests", () => {
       // Execute multiple operations concurrently
       const promises = Array.from({ length: concurrentOps }, (_, i) =>
         db.insert(listingEvent).values({
-          id: `concurrent-${Date.now()}-${i}`,
+          id: randomUUID(),
           symbol: `CONC${i}USDT`,
           exchangeName: "MEXC",
           listingTime: new Date(),
@@ -387,8 +388,8 @@ describe("Performance Requirements Tests", () => {
       const startTime = performance.now();
 
       // Complete workflow simulation
-      const listingId = `e2e-listing-${Date.now()}`;
-      const tradeId = `e2e-trade-${Date.now()}`;
+      const listingId = randomUUID();
+      const tradeId = randomUUID();
 
       // 1. Detect listing (<100ms target)
       await db.insert(listingEvent).values({
@@ -409,7 +410,7 @@ describe("Performance Requirements Tests", () => {
       await db.insert(tradeAttempt).values({
         id: tradeId,
         listingEventId: listingId,
-        configurationId: `config-${Date.now()}`,
+        configurationId: randomUUID(),
         symbol: "E2EUSDT",
         side: "BUY",
         type: "MARKET",

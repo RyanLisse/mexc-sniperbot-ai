@@ -101,6 +101,10 @@ export class ExchangeRulesCache {
     return this.rules.get(symbol);
   }
 
+  setRules(symbol: string, rules: ValidationRules): void {
+    this.rules.set(symbol, rules);
+  }
+
   /**
    * Check if rules are cached for a symbol
    */

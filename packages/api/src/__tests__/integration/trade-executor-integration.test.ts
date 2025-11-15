@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { randomUUID } from "node:crypto";
 import { db, tradingConfiguration } from "@mexc-sniperbot-ai/db";
-import { randomUUID } from "crypto";
 import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 import { riskManager } from "../../services/risk-manager";
@@ -10,21 +10,35 @@ import { MockExchangeAPI } from "../mocks/mock-exchange-api";
 describe("Trade Executor - Integration Tests", () => {
   let mockExchange: MockExchangeAPI;
   let testConfigId: string;
+  let testUserId: string;
 
   beforeEach(async () => {
     mockExchange = new MockExchangeAPI();
     mockExchange.setPrice("BTCUSDT", 45_000);
     mockExchange.setBalance("USDT", 10_000);
 
+    testUserId = randomUUID();
+
     // Create test trading configuration
     testConfigId = randomUUID();
     await db.insert(tradingConfiguration).values({
       id: testConfigId,
-      symbol: "BTCUSDT",
-      maxPurchaseAmount: "100",
-      strategy: "MARKET",
-      enabled: true,
-      userId: "test-user",
+      userId: testUserId,
+      enabledPairs: ["BTCUSDT"],
+      maxPurchaseAmount: 100,
+      priceTolerance: 100,
+      dailySpendingLimit: 10_000,
+      maxTradesPerHour: 10,
+      pollingInterval: 5000,
+      orderTimeout: 10_000,
+      recvWindow: 1000,
+      profitTargetPercent: 500,
+      stopLossPercent: 200,
+      timeBasedExitMinutes: 60,
+      trailingStopPercent: null,
+      sellStrategy: "COMBINED",
+      safetyEnabled: true,
+      isActive: true,
     });
 
     // Reset risk manager
@@ -58,14 +72,25 @@ describe("Trade Executor - Integration Tests", () => {
 
     test("should reject orders exceeding position size limits", async () => {
       // Create config with very large amount
-      const largeConfigId = `large-config-${Date.now()}`;
+      const largeConfigId = randomUUID();
       await db.insert(tradingConfiguration).values({
         id: largeConfigId,
-        symbol: "BTCUSDT",
-        maxPurchaseAmount: "50000", // $50k (exceeds 2% of $10k portfolio)
-        strategy: "MARKET",
-        enabled: true,
-        userId: "test-user",
+        userId: testUserId,
+        enabledPairs: ["BTCUSDT"],
+        maxPurchaseAmount: 50_000,
+        priceTolerance: 100,
+        dailySpendingLimit: 10_000,
+        maxTradesPerHour: 10,
+        pollingInterval: 5000,
+        orderTimeout: 10_000,
+        recvWindow: 1000,
+        profitTargetPercent: 500,
+        stopLossPercent: 200,
+        timeBasedExitMinutes: 60,
+        trailingStopPercent: null,
+        sellStrategy: "COMBINED",
+        safetyEnabled: true,
+        isActive: true,
       });
 
       try {
@@ -106,14 +131,25 @@ describe("Trade Executor - Integration Tests", () => {
 
     test("should reject invalid order quantities", async () => {
       // Create config with invalid quantity
-      const invalidConfigId = `invalid-config-${Date.now()}`;
+      const invalidConfigId = randomUUID();
       await db.insert(tradingConfiguration).values({
         id: invalidConfigId,
-        symbol: "BTCUSDT",
-        maxPurchaseAmount: "0.0000001", // Too small
-        strategy: "MARKET",
-        enabled: true,
-        userId: "test-user",
+        userId: testUserId,
+        enabledPairs: [],
+        maxPurchaseAmount: 1,
+        priceTolerance: 100,
+        dailySpendingLimit: 10_000,
+        maxTradesPerHour: 10,
+        pollingInterval: 5000,
+        orderTimeout: 10_000,
+        recvWindow: 1000,
+        profitTargetPercent: 500,
+        stopLossPercent: 200,
+        timeBasedExitMinutes: 60,
+        trailingStopPercent: null,
+        sellStrategy: "COMBINED",
+        safetyEnabled: true,
+        isActive: true,
       });
 
       try {

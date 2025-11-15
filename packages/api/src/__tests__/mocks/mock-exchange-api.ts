@@ -48,8 +48,11 @@ export class MockExchangeAPI {
 
   /**
    * Set balance for a currency
+   *
+   * NOTE: defined as a public class property so tree-shaking/minification
+   * cannot remove it, since our integration tests call this helper.
    */
-  setBalance(currency: string, amount: number): void {
+  setBalance = (currency: string, amount: number): void => {
     const existing = this.balances.get(currency);
     if (existing) {
       existing.free = amount;
@@ -60,7 +63,7 @@ export class MockExchangeAPI {
         locked: 0,
       });
     }
-  }
+  };
 
   /**
    * Get balance for a currency

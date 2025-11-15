@@ -1,6 +1,6 @@
 import { Spot } from "mexc-api-sdk";
+import { MexcApiKey, MexcApiSecret } from "../../secrets";
 import { logger } from "../lib/pino-logger";
-import { secrets } from "../secrets";
 
 /**
  * MEXC Order Executor
@@ -30,10 +30,10 @@ export type OrderResult = {
 };
 
 export class OrderExecutor {
-  private client: Spot;
+  private readonly client: Spot;
 
   constructor() {
-    this.client = new Spot(secrets.MexcApiKey, secrets.MexcApiSecret);
+    this.client = new Spot(MexcApiKey(), MexcApiSecret());
   }
 
   /**
@@ -54,16 +54,16 @@ export class OrderExecutor {
         `Executing MARKET ${params.side} for ${params.symbol}`
       );
 
-      const orderParams = {
-        symbol: params.symbol,
-        side: params.side,
-        type: "MARKET" as const,
-        quoteOrderQty: params.quoteOrderQty.toString(),
-        recvWindow: params.recvWindow || 1000,
-        timestamp: Date.now(),
-      };
-
-      const response = await this.client.newOrder(orderParams);
+      const response = await this.client.newOrder(
+        params.symbol,
+        params.side,
+        "MARKET",
+        {
+          quoteOrderQty: params.quoteOrderQty.toString(),
+          recvWindow: params.recvWindow ?? 1000,
+          timestamp: Date.now(),
+        }
+      );
 
       const duration = Date.now() - startTime;
 
@@ -121,12 +121,9 @@ export class OrderExecutor {
   /**
    * Get order details (for verification)
    */
-  async getOrder(symbol: string, orderId: string): Promise<any> {
+  async getOrder(symbol: string, orderId: string): Promise<OrderResult> {
     try {
-      return await this.client.queryOrder({
-        symbol,
-        orderId,
-      });
+      return (await this.client.queryOrder(symbol, { orderId })) as OrderResult;
     } catch (error) {
       logger.error(
         {

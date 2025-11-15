@@ -8,5 +8,5 @@
     "composite": true,
     "strictNullChecks": true
   },
-  "include": ["src", "encore.d.ts"]
+  "include": ["src", "encore.d.ts", "secrets.ts"]
 }

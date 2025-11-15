@@ -1,4 +1,7 @@
-.PHONY: test-all test-unit test-integration test-performance test-contract test-security test-websocket test-browser test-coverage clean-test test-db-start test-db-stop test-db-reset test-db-logs
+.PHONY: test-all test-unit test-integration test-performance test-contract test-security test-websocket test-browser test-coverage clean-test test-db-start test-db-stop test-db-reset test-db-logs dev kill-ports
+
+# Ports to free before starting dev (override via `make dev PORTS="3000 4000"`)
+PORTS ?= 3000 4000 4001
 
 # Comprehensive test suite - all tests must pass 100%
 test-all: test-unit test-integration test-performance test-contract test-security test-websocket test-browser
@@ -101,3 +104,19 @@ test-db-logs:
 test-db-status:
 	@echo "📊 Test database status..."
 	@docker-compose -f docker-compose.test.yml ps
+
+# Kill any processes listening on common dev ports, then start the app
+kill-ports:
+	@echo "🛑 Killing processes on ports $(PORTS) if they exist..."
+	@for port in $(PORTS); do \
+	  if lsof -ti:$$port > /dev/null 2>&1; then \
+	    echo "Killing processes on port $$port"; \
+	    lsof -ti:$$port | xargs kill -9 || true; \
+	  else \
+	    echo "No process found on port $$port"; \
+	  fi; \
+	done
+
+dev: kill-ports
+	@echo "🚀 Starting dev server (bun run dev)..."
+	@bun run dev

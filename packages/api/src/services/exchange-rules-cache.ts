@@ -8,6 +8,8 @@ import type { MEXCSymbol } from "./mexc-client";
 /**
  * Trading rules for a symbol
  */
+export type SymbolStatus = "ENABLED" | "DISABLED";
+
 export type ValidationRules = {
   minQty: number;
   maxQty: number;
@@ -16,7 +18,7 @@ export type ValidationRules = {
   tickSize: number;
   baseAsset: string;
   quoteAsset: string;
-  status: string;
+  status: SymbolStatus;
 };
 
 /**
@@ -31,6 +33,26 @@ interface SymbolWithFilters extends MEXCSymbol {
     minNotional?: string;
     tickSize?: string;
   }>;
+}
+
+const enabledStatusValues = new Set(["1", "ENABLED", "TRADING"]);
+const disabledStatusValues = new Set(["0", "2", "DISABLED"]);
+
+function normalizeSymbolStatus(status?: string): SymbolStatus {
+  if (!status) {
+    return "DISABLED";
+  }
+
+  const normalized = status.trim().toUpperCase();
+  if (enabledStatusValues.has(normalized)) {
+    return "ENABLED";
+  }
+
+  if (disabledStatusValues.has(normalized)) {
+    return "DISABLED";
+  }
+
+  return "DISABLED";
 }
 
 /**
@@ -118,7 +140,9 @@ export class ExchangeRulesCache {
   private parseSymbolFilters(
     symbol: SymbolWithFilters
   ): ValidationRules | null {
-    if (!symbol.filters || symbol.status !== "ENABLED") {
+    const normalizedStatus = normalizeSymbolStatus(symbol.status);
+
+    if (!symbol.filters || normalizedStatus !== "ENABLED") {
       return null;
     }
 
@@ -150,7 +174,7 @@ export class ExchangeRulesCache {
       tickSize,
       baseAsset: symbol.baseAsset,
       quoteAsset: symbol.quoteAsset,
-      status: symbol.status,
+      status: normalizedStatus,
     };
   }
 

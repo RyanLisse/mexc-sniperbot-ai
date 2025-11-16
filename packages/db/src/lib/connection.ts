@@ -1,14 +1,12 @@
-import { getDatabaseConfig } from "@mexc-sniperbot-ai/api/src/lib/env";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Effect } from "effect";
 import { Pool, type PoolConfig } from "pg";
-import {
-  botStatus,
-  listingEvent,
-  tradeAttempt,
-  tradingConfiguration,
-  userSession,
-} from "../schema/index";
+import { botStatus } from "../schema/bot-status";
+import { tradingConfiguration } from "../schema/configuration";
+import { listingEvent } from "../schema/listing-events";
+import { tradeAttempt } from "../schema/trade-attempts";
+import { userSession } from "../schema/user-sessions";
+import { getDatabaseConfig } from "./env";
 
 // Connection pool configuration
 const createPoolConfig = (): PoolConfig => {

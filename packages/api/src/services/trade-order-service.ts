@@ -1,4 +1,4 @@
-import { tradeAttempt } from "@mexc-sniperbot-ai/db/src/schema";
+import { tradeAttempt } from "@mexc-sniperbot-ai/db";
 import { desc, eq } from "drizzle-orm";
 import { db } from "../../db";
 import { logger } from "../lib/pino-logger";

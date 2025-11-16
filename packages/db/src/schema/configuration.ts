@@ -43,8 +43,50 @@ export const tradingConfiguration = pgTable("trading_configurations", {
   isActive: boolean("is_active").notNull().default(true),
 });
 
-export type TradingConfiguration = typeof tradingConfiguration.$inferSelect;
-export type NewTradingConfiguration = typeof tradingConfiguration.$inferInsert;
+// Plain TS shapes used by Encore and the app
+export type TradingConfiguration = {
+  id: string;
+  userId: string;
+  enabledPairs: string[];
+  maxPurchaseAmount: number;
+  priceTolerance: number;
+  dailySpendingLimit: number;
+  maxTradesPerHour: number;
+  pollingInterval: number;
+  orderTimeout: number;
+  recvWindow: number;
+  profitTargetPercent: number | null;
+  stopLossPercent: number | null;
+  timeBasedExitMinutes: number | null;
+  trailingStopPercent: number | null;
+  sellStrategy: string | null;
+  safetyEnabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  isActive: boolean;
+};
+
+export type NewTradingConfiguration = {
+  userId: string;
+  enabledPairs?: string[];
+  maxPurchaseAmount: number;
+  priceTolerance: number;
+  dailySpendingLimit: number;
+  maxTradesPerHour: number;
+  pollingInterval?: number;
+  orderTimeout?: number;
+  recvWindow?: number;
+  profitTargetPercent?: number | null;
+  stopLossPercent?: number | null;
+  timeBasedExitMinutes?: number | null;
+  trailingStopPercent?: number | null;
+  sellStrategy?: string | null;
+  safetyEnabled?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+  isActive?: boolean;
+};
+
 export type {
   TradingConfiguration as BotConfiguration,
   NewTradingConfiguration as NewBotConfiguration,

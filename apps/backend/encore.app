@@ -1,0 +1,1 @@
+{"id": "mexc-sniperbot-ai", "lang": "typescript"}

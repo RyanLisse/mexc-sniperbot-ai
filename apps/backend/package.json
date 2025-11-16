@@ -1,0 +1,24 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "type": "module",
+  "packageManager": "bun",
+  "scripts": {
+    "build": "bun run --cwd ../web build",
+    "test": "bun test tests/",
+    "test:unit": "bun test tests/unit/",
+    "test:watch": "bun test --watch tests/"
+  },
+  "dependencies": {
+    "effect": "^3.19.3",
+    "encore.dev": "^1.51.7",
+    "ws": "^8.18.1",
+    "@mexc-sniperbot-ai/db": "workspace:*",
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.8.3"
+  }
+}

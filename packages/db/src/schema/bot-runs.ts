@@ -22,5 +22,26 @@ export const botRun = pgTable("bot_runs", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export type BotRun = typeof botRun.$inferSelect;
-export type NewBotRun = typeof botRun.$inferInsert;
+// Plain TS shapes used throughout the app and understood by Encore's TS parser
+export type BotRun = {
+  id: string;
+  configurationId: string;
+  status: string;
+  startedAt: Date;
+  stoppedAt: Date | null;
+  lastHeartbeat: Date;
+  operatorId: string;
+  errorMessage: string | null;
+  createdAt: Date;
+};
+
+export type NewBotRun = {
+  configurationId: string;
+  operatorId: string;
+  status?: string;
+  startedAt?: Date;
+  stoppedAt?: Date | null;
+  lastHeartbeat?: Date;
+  errorMessage?: string | null;
+  createdAt?: Date;
+};

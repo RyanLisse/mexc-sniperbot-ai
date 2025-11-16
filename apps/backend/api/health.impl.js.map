@@ -1,0 +1,1 @@
+{"version":3,"file":"health.impl.js","sourceRoot":"","sources":["health.impl.ts"],"names":[],"mappings":"AAQA,MAAM,UAAU,mBAAmB,CAAC,EAAE,OAAO,EAAE,GAAG,EAAE,GAAG,GAAG,IAAI,IAAI,EAAE,EAAsB;IACxF,OAAO;QACL,MAAM,EAAE,IAAI;QACZ,SAAS,EAAE,GAAG,CAAC,WAAW,EAAE;QAC5B,OAAO;QACP,GAAG;KACJ,CAAC;AACJ,CAAC"}

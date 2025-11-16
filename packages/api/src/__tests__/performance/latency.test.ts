@@ -28,7 +28,7 @@ describe("Performance Tests - Latency Benchmarks", () => {
       }
 
       latencies.sort((a, b) => a - b);
-      const p50 = latencies[Math.floor(latencies.length * 0.5)];
+      const p50 = latencies[Math.floor(latencies.length * 0.5)] ?? 0;
 
       // P50 should be < 100ms (may be higher if API not configured)
       expect(p50).toBeGreaterThanOrEqual(0);
@@ -58,7 +58,7 @@ describe("Performance Tests - Latency Benchmarks", () => {
       }
 
       latencies.sort((a, b) => a - b);
-      const p95 = latencies[Math.floor(latencies.length * 0.95)];
+      const p95 = latencies[Math.floor(latencies.length * 0.95)] ?? 0;
 
       expect(p95).toBeGreaterThanOrEqual(0);
       if (p95 < 1000) {
@@ -86,7 +86,7 @@ describe("Performance Tests - Latency Benchmarks", () => {
       }
 
       latencies.sort((a, b) => a - b);
-      const p99 = latencies[Math.floor(latencies.length * 0.99)];
+      const p99 = latencies[Math.floor(latencies.length * 0.99)] ?? 0;
 
       expect(p99).toBeGreaterThanOrEqual(0);
       if (p99 < 1000) {

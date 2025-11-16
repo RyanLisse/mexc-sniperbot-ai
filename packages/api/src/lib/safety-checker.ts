@@ -1,4 +1,4 @@
-import { tradeLog } from "@mexc-sniperbot-ai/db/src/schema";
+import { tradeLog } from "@mexc-sniperbot-ai/db";
 import { and, gte, sql } from "drizzle-orm";
 import { db } from "../../db";
 import { logger } from "./pino-logger";

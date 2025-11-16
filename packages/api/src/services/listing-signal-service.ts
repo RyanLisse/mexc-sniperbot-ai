@@ -1,4 +1,4 @@
-import { listingEvent } from "@mexc-sniperbot-ai/db/src/schema";
+import { listingEvent } from "@mexc-sniperbot-ai/db";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../db";
 import { logger } from "../lib/pino-logger";

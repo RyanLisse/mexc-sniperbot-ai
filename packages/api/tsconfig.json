@@ -8,5 +8,11 @@
     "composite": true,
     "strictNullChecks": true
   },
-  "include": ["src", "encore.d.ts", "secrets.ts"]
+  "include": ["src", "encore.d.ts", "secrets.ts", "db.ts"],
+  "exclude": [
+    "src/lib/safety-checker.ts",
+    "src/services/listing-signal-service.ts",
+    "src/services/trade-log-service.ts",
+    "src/services/trade-order-service.ts"
+  ]
 }

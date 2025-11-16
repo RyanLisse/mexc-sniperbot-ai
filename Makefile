@@ -1,7 +1,7 @@
-.PHONY: test-all test-unit test-integration test-performance test-contract test-security test-websocket test-browser test-coverage clean-test test-db-start test-db-stop test-db-reset test-db-logs dev kill-ports
+.PHONY: test-all test-unit test-integration test-performance test-contract test-security test-websocket test-browser test-coverage clean-test test-db-start test-db-stop test-db-reset test-db-logs dev kill-ports encore-dev
 
-# Ports to free before starting dev (override via `make dev PORTS="3000 4000"`)
-PORTS ?= 3000 4000 4001
+# Ports to free before starting dev (override via `make dev PORTS="3000 3001 4000"`)
+PORTS ?= 3000 3001 4000 4001
 
 # Comprehensive test suite - all tests must pass 100%
 test-all: test-unit test-integration test-performance test-contract test-security test-websocket test-browser
@@ -117,6 +117,10 @@ kill-ports:
 	  fi; \
 	done
 
-dev: kill-ports
+encore-dev:
+	@echo "🚀 Starting Encore backend (encore run)..."
+	@cd encore-app && encore run &
+
+dev: kill-ports encore-dev
 	@echo "🚀 Starting dev server (bun run dev)..."
 	@bun run dev
